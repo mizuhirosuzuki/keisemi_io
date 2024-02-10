@@ -1,0 +1,656 @@
+---
+title: "需要モデルの推定（基礎編 2）"
+format:
+  html:
+    toc: true
+    html-math-method: katex
+jupyter: julia-1.9
+---
+
+```{julia}
+using CSV
+using DataFrames
+using StringEncodings
+using FixedEffectModels
+using RegressionTables
+using Plots
+using LinearAlgebra
+using Statistics
+using Optim
+using Printf
+using ForwardDiff
+using Random
+using GLM
+using Serialization
+```
+
+```{julia}
+data = CSV.File(
+    open(read, "data/1_demand_estimation_1/CleanData_20180222.csv", enc"shift-jis"),
+    missingstring = ["NA", ""],
+    ) |> DataFrame
+first(select(data, Not([:base_color, :option_color])), 5)
+```
+
+```{julia}
+dataHH = CSV.read("data/1_demand_estimation_1/HHsize.csv", DataFrame)
+dataHH[!, :HH] = parse.(Int, replace.(dataHH.HH, "," => ""))
+first(dataHH, 5)
+```
+
+```{julia}
+dataCPI = CSV.File(
+    open(read, "data/1_demand_estimation_1/zni2015s.csv", enc"shift-jis"), 
+    select = 1:2,
+    skipto = 7
+    ) |> DataFrame
+rename!(dataCPI, "類・品目" => "year", "総合" => "CPI")
+first(dataCPI, 5)
+```
+
+```{julia}
+## Data cleaning
+data = data[!, [
+        :Maker, :Type, :Name, :Year, :Sales, 
+        :Model, :price, :kata, :weight, :FuelEfficiency, 
+        :HorsePower, :overall_length, :overall_width, :overall_height
+        ]]
+rename!(data, "Year" => "year")
+data = leftjoin(data, dataHH, on = :year)
+data = leftjoin(data, dataCPI, on = :year)
+first(data, 5)
+```
+
+```{julia}
+dropmissing!(data, :FuelEfficiency);
+cpi2016 = dataCPI[dataCPI.year .== 2016, "CPI"][1]
+data[!, :price] = data.price ./ (data.CPI / cpi2016) / 100;
+data[!, :size] = (data[:, :overall_length] / 1000) .* (data[:, :overall_width] / 1000) .* (data[:, :overall_height] / 1000);
+data[!, :hppw] = data[:, :HorsePower] ./ data[:, :weight];
+
+unique_name = unique(data[!, [:Name]])
+unique_name[!, :NameID] = rownumber.(eachrow(unique_name))
+data = leftjoin(data, unique_name, on = :Name);
+
+data = transform(
+    groupby(data, :year),
+    :Sales => sum => :inside_total
+);
+data[!, :outside_total] = data.HH .- data.inside_total;
+data[!, :share] = data.Sales ./ data.HH;
+data[!, :share0] = data.outside_total ./ data.HH;
+transform!(
+    groupby(data, [:year, :Maker]),
+    [:hppw, :FuelEfficiency, :size] .=> sum .=> [:hppw_sum_own, :FuelEfficiency_sum_own, :size_sum_own],
+    [:hppw, :FuelEfficiency, :size] .=> (x -> sum(x.^2)) .=> [:hppw_sqr_sum_own, :FuelEfficiency_sqr_sum_own, :size_sqr_sum_own],
+    nrow => "group_n"
+);
+transform!(
+    groupby(data, [:year]),
+    [:hppw, :FuelEfficiency, :size] .=> sum .=> [:hppw_sum_mkt, :FuelEfficiency_sum_mkt, :size_sum_mkt],
+    [:hppw, :FuelEfficiency, :size] .=> (x -> sum(x.^2)) .=> [:hppw_sqr_sum_mkt, :FuelEfficiency_sqr_sum_mkt, :size_sqr_sum_mkt],
+    nrow => "mkt_n"
+);
+
+data[!, :iv_BLP_own_hppw]             = data[:, :hppw_sum_own]           .- data[:, :hppw];
+data[!, :iv_BLP_own_FuelEfficiency]   = data[:, :FuelEfficiency_sum_own] .- data[:, :FuelEfficiency];
+data[!, :iv_BLP_own_size]             = data[:, :size_sum_own]           .- data[:, :size];
+data[!, :iv_BLP_other_hppw]           = data[:, :hppw_sum_mkt]           .- data[:, :hppw_sum_own];
+data[!, :iv_BLP_other_FuelEfficiency] = data[:, :FuelEfficiency_sum_mkt] .- data[:, :FuelEfficiency_sum_own];
+data[!, :iv_BLP_other_size]           = data[:, :size_sum_mkt]           .- data[:, :size_sum_own];
+
+data[!, :iv_GH_own_hppw]             = (
+    (data[:, :group_n] .- 1) .* data[:, :hppw].^2 .+ 
+    (data[:, :hppw_sqr_sum_own] .- data[:, :hppw].^2) .- 
+    2 .* data[:, :hppw] .* (data[:, :hppw_sum_own] .- data[:, :hppw])
+);
+data[!, :iv_GH_own_FuelEfficiency]   = (
+    (data[:, :group_n] .- 1) .* data[:, :FuelEfficiency].^2 .+ 
+    (data[:, :FuelEfficiency_sqr_sum_own] .- data[:, :FuelEfficiency].^2) .- 
+    2 .* data[:, :FuelEfficiency] .* (data[:, :FuelEfficiency_sum_own] .- data[:, :FuelEfficiency])
+);
+data[!, :iv_GH_own_size]             = (
+    (data[:, :group_n] .- 1) .* data[:, :size].^2 .+ 
+    (data[:, :size_sqr_sum_own] .- data[:, :size].^2) .- 
+    2 .* data[:, :size] .* (data[:, :size_sum_own] .- data[:, :size])
+);
+data[!, :iv_GH_other_hppw]           = (
+    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :hppw].^2 .+ 
+    (data[:, :hppw_sqr_sum_mkt] .- data[:, :hppw_sqr_sum_own]) .- 
+    2 .* data[:, :hppw] .* (data[:, :hppw_sum_mkt] .- data[:, :hppw_sum_own])
+);
+data[!, :iv_GH_other_FuelEfficiency] = (
+    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :FuelEfficiency].^2 .+ 
+    (data[:, :FuelEfficiency_sqr_sum_mkt] .- data[:, :FuelEfficiency_sqr_sum_own]) .- 
+    2 .* data[:, :FuelEfficiency] .* (data[:, :FuelEfficiency_sum_mkt] .- data[:, :FuelEfficiency_sum_own])
+);
+data[!, :iv_GH_other_size]           = (
+    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :size].^2 .+ 
+    (data[:, :size_sqr_sum_mkt] .- data[:, :size_sqr_sum_own]) .- 
+    2 .* data[:, :size] .* (data[:, :size_sum_mkt] .- data[:, :size_sum_own])
+);
+```
+
+## 4.1
+
+```{julia}
+NIPPYOautoIDvec = [
+    260, 4, 76, 104, 64, 54, 152, 153, 71, 197,
+    42, 45, 114, 208, 209, 77, 236, 58, 127, 187,
+    79, 175, 19, 117, 216, 112, 256, 119, 37, 158
+];
+data_NIPPYO = data[
+    in(NIPPYOautoIDvec).(data[:, :NameID]), 
+    [:year, :share, :NameID, :Sales, :price, :hppw, :FuelEfficiency, :size, :Name]
+    ];
+data_NIPPYO[!, :log_sales] = log.(data_NIPPYO[:, :Sales]);
+data_NIPPYO[!, :log_price] = log.(data_NIPPYO[:, :price]);
+data_NIPPYO[!, :log10_sales] = log10.(data_NIPPYO[:, :Sales]);
+data_NIPPYO[!, :log10_price] = log10.(data_NIPPYO[:, :price]);
+## 4.2
+data[!, :logit_share] = log.(data[:, :share]) .- log.(data[:, :share0]);
+
+iv_GH_res = reg(
+    data, 
+    @formula(logit_share ~ (
+        price ~ iv_GH_own_hppw + iv_GH_own_FuelEfficiency + iv_GH_own_size + 
+            iv_GH_other_hppw + iv_GH_other_FuelEfficiency + iv_GH_other_size
+    ) + hppw + FuelEfficiency + size),
+    Vcov.robust(),
+    save = true
+);
+
+dt_2016 = data_NIPPYO[data_NIPPYO.year .== 2016, [:price, :share, :NameID, :Name]]
+
+price = dt_2016.price
+share = dt_2016.share
+NameID = dt_2016.NameID
+
+own_elas = iv_GH_res.coef[iv_GH_res.coefnames .== "price"][1] .* price .* (1.0 .- share);
+cross_elas = (-1.0) .* iv_GH_res.coef[iv_GH_res.coefnames .== "price"][1] .* price .* share;
+J = length(own_elas);
+
+elas_mat = reduce(hcat, [cross_elas for j = 1:J]);
+elas_mat[diagind(elas_mat)] = own_elas;
+
+elas_mat[[12, 13, 10, 1], [12, 13, 10, 1]]
+```
+
+## 5
+
+```{julia}
+transform!(
+    groupby(data, [:year, :Maker, :Type]),
+    [:hppw, :FuelEfficiency, :size] .=> sum .=> [:hppw_sum_own, :FuelEfficiency_sum_own, :size_sum_own],
+    [:hppw, :FuelEfficiency, :size] .=> (x -> sum(x.^2)) .=> [:hppw_sqr_sum_own, :FuelEfficiency_sqr_sum_own, :size_sqr_sum_own],
+    nrow => "group_n"
+);
+transform!(
+    groupby(data, [:year, :Type]),
+    [:hppw, :FuelEfficiency, :size] .=> sum .=> [:hppw_sum_mkt, :FuelEfficiency_sum_mkt, :size_sum_mkt],
+    [:hppw, :FuelEfficiency, :size] .=> (x -> sum(x.^2)) .=> [:hppw_sqr_sum_mkt, :FuelEfficiency_sqr_sum_mkt, :size_sqr_sum_mkt],
+    nrow => "mkt_n"
+);
+
+data[!, :iv_BLP_own_hppw_nest]             = data[:, :hppw_sum_own]           .- data[:, :hppw];
+data[!, :iv_BLP_own_FuelEfficiency_nest]   = data[:, :FuelEfficiency_sum_own] .- data[:, :FuelEfficiency];
+data[!, :iv_BLP_own_size_nest]             = data[:, :size_sum_own]           .- data[:, :size];
+data[!, :iv_BLP_own_num_nest]              = data[:, :group_n]                .- 1;
+
+data[!, :iv_BLP_other_hppw_nest]           = data[:, :hppw_sum_mkt]           .- data[:, :hppw_sum_own];
+data[!, :iv_BLP_other_FuelEfficiency_nest] = data[:, :FuelEfficiency_sum_mkt] .- data[:, :FuelEfficiency_sum_own];
+data[!, :iv_BLP_other_size_nest]           = data[:, :size_sum_mkt]           .- data[:, :size_sum_own];
+data[!, :iv_BLP_other_num_nest]            = data[:, :mkt_n]                  .- data[:, :group_n];
+data[!, :iv_GH_own_hppw_nest]             = (
+    (data[:, :group_n] .- 1) .* data[:, :hppw].^2 .+ 
+    (data[:, :hppw_sqr_sum_own] .- data[:, :hppw].^2) .- 
+    2 .* data[:, :hppw] .* (data[:, :hppw_sum_own] .- data[:, :hppw])
+);
+data[!, :iv_GH_own_FuelEfficiency_nest]   = (
+    (data[:, :group_n] .- 1) .* data[:, :FuelEfficiency].^2 .+ 
+    (data[:, :FuelEfficiency_sqr_sum_own] .- data[:, :FuelEfficiency].^2) .- 
+    2 .* data[:, :FuelEfficiency] .* (data[:, :FuelEfficiency_sum_own] .- data[:, :FuelEfficiency])
+);
+data[!, :iv_GH_own_size_nest]             = (
+    (data[:, :group_n] .- 1) .* data[:, :size].^2 .+ 
+    (data[:, :size_sqr_sum_own] .- data[:, :size].^2) .- 
+    2 .* data[:, :size] .* (data[:, :size_sum_own] .- data[:, :size])
+);
+data[!, :iv_GH_other_hppw_nest]           = (
+    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :hppw].^2 .+ 
+    (data[:, :hppw_sqr_sum_mkt] .- data[:, :hppw_sqr_sum_own]) .- 
+    2 .* data[:, :hppw] .* (data[:, :hppw_sum_mkt] .- data[:, :hppw_sum_own])
+);
+data[!, :iv_GH_other_FuelEfficiency_nest] = (
+    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :FuelEfficiency].^2 .+ 
+    (data[:, :FuelEfficiency_sqr_sum_mkt] .- data[:, :FuelEfficiency_sqr_sum_own]) .- 
+    2 .* data[:, :FuelEfficiency] .* (data[:, :FuelEfficiency_sum_mkt] .- data[:, :FuelEfficiency_sum_own])
+);
+data[!, :iv_GH_other_size_nest]           = (
+    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :size].^2 .+ 
+    (data[:, :size_sqr_sum_mkt] .- data[:, :size_sqr_sum_own]) .- 
+    2 .* data[:, :size] .* (data[:, :size_sum_mkt] .- data[:, :size_sum_own])
+);
+
+```
+
+## 6
+
+```{julia}
+data = transform(
+    groupby(data, [:year, :Type]),
+    :Sales => sum => :sum_year_body
+);
+data[!, :inside_share] = data.Sales ./ data.sum_year_body;
+data[!, :log_inside_share] = log.(data.Sales ./ data.sum_year_body);
+ols_res = reg(data, @formula(logit_share ~ price + log_inside_share + hppw + FuelEfficiency + size))
+
+iv_BLP2_res = reg(
+    data, 
+    @formula(logit_share ~ (
+        price + log_inside_share ~ iv_BLP_own_hppw_nest + iv_BLP_own_FuelEfficiency_nest + iv_BLP_own_size_nest + 
+            iv_BLP_other_hppw_nest + iv_BLP_other_FuelEfficiency_nest + iv_BLP_other_size_nest +
+            iv_BLP_own_num_nest + iv_BLP_other_num_nest
+    ) + hppw + FuelEfficiency + size),
+    Vcov.robust()
+);
+
+regtable(ols_res, iv_BLP2_res)
+```
+
+## 6.1
+
+```{julia}
+alpha1 = ols_res.coef[ols_res.coefnames .== "price"][1]
+sigma1 = ols_res.coef[ols_res.coefnames .== "log_inside_share"][1]
+
+alpha2 = iv_BLP2_res.coef[iv_BLP2_res.coefnames .== "price"][1]
+sigma2 = iv_BLP2_res.coef[iv_BLP2_res.coefnames .== "log_inside_share"][1]
+
+data[!, :own_elas_ols] = alpha1 .* data[:, :price] .* (
+    1.0 .- sigma1 .* data[:, :inside_share] .- 
+    (1.0 .- sigma1) .* data[:, :share]
+) ./ (1.0 .- sigma1);
+data[!, :own_elas_ivglp] = alpha2 .* data[:, :price] .* (
+    1.0 .- sigma2 .* data[:, :inside_share] .- 
+    (1.0 .- sigma2) .* data[:, :share]
+) ./ (1.0 .- sigma2);
+
+describe(data[:, r"^own_elas"], :mean, :std, :median, :min, :max)
+data_NIPPYO = data[
+    in(NIPPYOautoIDvec).(data[:, :NameID]), 
+    [:year, :share, :Type, :inside_share, :NameID, :Sales, :price, :hppw, :FuelEfficiency, :size, :Name]
+    ];
+data_NIPPYO[!, :log_sales] = log.(data_NIPPYO[:, :Sales]);
+data_NIPPYO[!, :log_price] = log.(data_NIPPYO[:, :price]);
+
+dt_2016 = data_NIPPYO[data_NIPPYO.year .== 2016, [:price, :Type, :share, :inside_share, :NameID, :Name]]
+
+price = dt_2016.price;
+share = dt_2016.share;
+NameID = dt_2016.NameID;
+inside_share = dt_2016.inside_share;
+group = dt_2016.Type;
+own_elas = alpha2 .* price .* (1.0 .- sigma2 .* inside_share .- (1.0 .- sigma2) .* share) ./ (1.0 .- sigma2);
+cross_elas_othergroup = (-1.0) .* alpha2 .* price .* share;
+J = length(own_elas);
+
+cross_elas_othergroup = reduce(hcat, [cross_elas_othergroup for j = 1:J]);
+elas_mat[diagind(elas_mat)] = own_elas;
+
+price_1_mat       = reduce(hcat, [price for j = 1:J]);
+share_1_mat       = reduce(hcat, [share for j = 1:J]);
+insideshare_1_mat = reduce(hcat, [inside_share for j = 1:J]);
+
+cross_elas_samegroup = (-1.0) .* alpha2 .* price_1_mat .* (
+    sigma2 .* insideshare_1_mat .+ (1.0 .- sigma2) .* share_1_mat
+) ./ (1.0 .- sigma2);
+
+temp_mat1 = reduce(hcat, [group for j = 1:J]);
+temp_mat2 = permutedims(temp_mat1);
+ind_same_group  = (temp_mat1 .== temp_mat2);
+ind_other_group = (temp_mat1 .!== temp_mat2);
+
+elas_mat_nl = cross_elas_samegroup .* ind_same_group .+ cross_elas_othergroup .* ind_other_group;
+elas_mat_nl[diagind(elas_mat_nl)] = own_elas;
+
+elas_mat_nl[[12, 13, 10, 1], [12, 13, 10, 1]]
+```
+
+## 7
+
+### Step 1
+
+```{julia}
+sort!(data, [:year, :NameID]);
+N = nrow(data);
+T = length(unique(data.year));
+X1 = hcat(repeat([1], N), Matrix(data[:, [:price, :FuelEfficiency, :hppw, :size]]));
+X2 = hcat(data.price, repeat([1], N), data.size);
+Z = hcat(
+    repeat([1], N),
+    Matrix(data[:, [:FuelEfficiency, :hppw, :size]]),
+    Matrix(data[:, r"^iv_GH.*(?<!nest)$"])
+    );
+Random.seed!(123);
+Nsim = 500;
+
+draw_vec = reduce(hcat, [randn(size(X2, 2)) for j =1:Nsim]);
+
+theta2 = [0.001, 0.001, 0.001];
+
+marketindex = data.year;
+uniquemarketindex = sort(unique(data.year));
+
+temp1 = reduce(hcat, [uniquemarketindex for j = 1:N])';
+temp2 = reduce(hcat, [data.year for j = 1:T]);
+tempmat = (temp1 .== temp2);
+mutable struct datalist_struct
+    X1::Array{Float64,2};
+    X2::Array{Float64,2};
+    Z::Array{Float64,2};
+    ShareVec::Vector{Float64};
+    marketindex::Vector{Int64};
+    logitshare::Vector{Float64};
+    draw_vec::Array{Float64,2};
+    tempmat::BitMatrix
+end
+
+mutable struct parameter_struct
+    Nsim::Int;
+    T::Int;
+    N::Int;
+end
+datalist = datalist_struct(X1, X2, Z, data.share, marketindex, data.logit_share, draw_vec, tempmat);
+parameter = parameter_struct(Nsim, T, N);
+```
+
+### Step 2
+
+```{julia}
+function f_mktshare(
+        theta2,
+        datalist::datalist_struct,
+        parameter::parameter_struct,
+        delta
+    )
+        
+    mu = datalist.X2 * Diagonal(theta2) * datalist.draw_vec;
+    
+    delta_mu = delta .* ones((1, parameter.Nsim)) .+ mu;
+    exp_delta_mu = exp.(delta_mu .- maximum(delta_mu));
+    denom_outside = exp.(-maximum(delta_mu));
+    
+    denom_temp = (exp_delta_mu' * datalist.tempmat)' .+ denom_outside;
+    denom = datalist.tempmat * denom_temp;
+    
+    s_jt_i = exp_delta_mu ./ denom;
+    s_jt = vec(mean(s_jt_i, dims = 2));
+    
+    return s_jt
+    
+end
+@time f_mktshare([0.01, 0.01, 0.01], datalist, parameter, data.logit_share);
+```
+
+### Step 3
+
+```{julia}
+function f_contraction(
+        theta2,
+        datalist::datalist_struct,
+        parameter::parameter_struct,
+        delta_ini
+    )
+    
+    tol = 1e-11;
+    norm = 1e+10
+
+    delta_old = delta_ini;
+    exp_delta_old = exp.(delta_old);
+    
+    iter = 0;
+        
+    while ((norm > tol) & (iter < 1000))
+        
+#         print(iter, "\n")
+        
+        pred_mkt_share = f_mktshare(theta2, datalist, parameter, delta_old);
+        
+        exp_delta = exp_delta_old .* datalist.ShareVec ./ pred_mkt_share;
+        
+        norm = maximum(abs.(exp_delta .- exp_delta_old));
+        
+        exp_delta_old = exp_delta;
+        delta_old = log.(exp_delta);
+        iter += 1;
+        
+    end
+    
+#     print(iter, "\n")
+    
+    return delta_old;
+    
+end
+    
+@time f_contraction([0.1, 0.01, 0.01], datalist, parameter, data.logit_share);
+```
+
+### Step 4
+
+```{julia}
+function f_GMMobj(
+        theta2,
+        parameter::parameter_struct,
+        datalist::datalist_struct,
+        delta_ini::Vector{Float64}
+    )
+    
+#     delta_ini = delta_global;
+#     delta_ini = datalist.logitshare;
+    delta = f_contraction(theta2, datalist, parameter, delta_ini);
+#     global delta_global = delta
+    
+#     if (datalist.weight_mat_option == "2SLS") 
+        W = inv(datalist.Z' * datalist.Z);
+#     elseif (datalist.weight_mat_option == "Ident")
+#         W = I(size(datalist.Z, 2));
+#     end
+    
+    beta_hat = (datalist.X1' * datalist.Z * W * datalist.Z' * datalist.X1) \ (datalist.X1' * datalist.Z * W * datalist.Z' * delta);
+    
+    Xi = delta - datalist.X1 * beta_hat;
+    
+    output = Xi' * datalist.Z * W * datalist.Z' * Xi
+        
+    return output
+    
+end    
+    
+initial_x = [0.1, 1.0, 0.1];
+delta_ini = f_contraction(initial_x, datalist, parameter, datalist.logitshare);
+```
+
+```{julia}
+#| eval: false
+objFunc_for_Optim = TwiceDifferentiable(
+    x -> f_GMMobj(x, parameter, datalist, delta_ini),
+    initial_x;
+    autodiff = :forward
+    );
+@time gmm_res = optimize(
+    objFunc_for_Optim,
+#     x -> f_GMMobj(x, parameter, datalist, delta_ini),
+    [0.0, 0.00, 0.00],
+    [Inf, Inf, Inf],
+    initial_x,
+    Optim.Options(show_trace = true)
+)
+```
+
+```{julia}
+#| echo: false
+#| eval: false
+serialize("tmp/1_demand_estimation_2/gmm_res.ser", gmm_res)
+```
+
+```{julia}
+#| echo: false
+gmm_res = deserialize("tmp/1_demand_estimation_2/gmm_res.ser")
+```
+
+```{julia}
+gmm_res.minimizer
+```
+
+```{julia}
+W = inv(datalist.Z' * datalist.Z);    
+delta = f_contraction(gmm_res.minimizer, datalist, parameter, delta_ini);
+beta_hat = (datalist.X1' * datalist.Z * W * datalist.Z' * datalist.X1) \ (datalist.X1' * datalist.Z * W * datalist.Z' * delta);
+
+beta_hat
+```
+
+### Step 5
+
+```{julia}
+Xi = delta - X1 * beta_hat;
+Omega_hat = reduce(+, Z[i,:] * Z[i,:]' .* Xi[i]^2 ./ N for i = 1:N);
+Ddelta = ForwardDiff.jacobian(x -> delta_ini = f_contraction(x, datalist, parameter, delta), gmm_res.minimizer);
+G = Z' * hcat(- X1, Ddelta) ./ N;
+AsyVarMat = (G' * W * G) \ G' * W * Omega_hat * W * G * inv(G' * W * G);
+Ase = sqrt.(diag(AsyVarMat) ./ N);
+
+DataFrame(
+    Var = ["Const", "Price", "Fuel Efficiency", "hppw", "size", "random_price", "random_constant", "random_size"],
+    Est = vcat(beta_hat, gmm_res.minimizer),
+    se = Ase
+)
+```
+
+## 8
+
+```{julia}
+mu = X2 * Diagonal(gmm_res.minimizer) * draw_vec;
+delta_mu = delta .+ mu;
+exp_delta_mu = exp.(delta_mu);
+denom_outside = exp.(0.0);
+denom_temp = (exp_delta_mu' * tempmat)' .+ denom_outside;
+denom = tempmat * denom_temp;
+
+s_jt_i = exp_delta_mu ./ denom;
+draw_for_price = draw_vec[1,:];
+alpha_i = beta_hat[2] .+ gmm_res.minimizer[1] .* draw_for_price;
+year = 2016
+J_t = sum(data.year .== year);
+
+ag_model_s_i = s_jt_i[data.year .== year, :]
+ag_model_s = mean(ag_model_s_i, dims = 2);
+price_t = data.price[data.year .== year];
+
+elasmat = zeros((J_t, J_t));
+
+for k in 1:J_t, j in 1:J_t
+    if (k != j)
+        elasmat[k, j] = (-1.0) .* price_t[k] ./ ag_model_s[j] * mean(alpha_i .* ag_model_s_i[j, :] .* ag_model_s_i[k, :])
+    elseif (k == j)
+        elasmat[k, j] = price_t[j] ./ ag_model_s[j] * mean(alpha_i .* ag_model_s_i[j, :] .* (1.0 .- ag_model_s_i[j, :]))
+    end
+end
+
+
+elasmat[[12, 13, 10, 1], [12, 13, 10, 1]]
+
+```
+
+## 9
+
+```{julia}
+function f_revenue(
+        price_cand,
+        data,
+        datalist,
+        parameter,
+        delta,
+        beta_hat,
+        theta2,
+        option
+    )
+
+    mc_betado = 3.198 * (1.0 - 1.0 / abs(-2.16720791));
+
+    tempprice = data.price[:];
+    tempprice[(data.NameID .== 197) .& (data.year .== 2016)] .= price_cand;
+    
+    X1_new = datalist.X1[:,:];
+    X2_new = datalist.X2[:,:];
+    X1_new[:, 2] = tempprice;
+    X2_new[:, 1] = tempprice;
+    
+    org_xi = delta .- datalist.X1 * beta_hat;
+    new_delta = X1_new * beta_hat .+ org_xi;
+    
+    datalist_temp = datalist_struct(
+        X1_new, X2_new, datalist.Z, data.share, datalist.marketindex, 
+        data.logit_share, datalist.draw_vec, datalist.tempmat
+        );
+    
+    mktshare = f_mktshare(theta2, datalist_temp, parameter, new_delta);
+    
+    quant = mktshare .* data.HH;
+    revenue = tempprice .* quant;
+        
+    revenuevec  = revenue[(data.NameID .== 197) .& (data.year .== 2016)];
+    revenuevec2 = sum(revenue[in(NIPPYOautoIDvec).(data[:, :NameID]) .& (data.year .== 2016)]);
+    
+    pivec  = revenuevec  .- mc_betado .* quant[(data.NameID .== 197) .& (data.year .== 2016)];
+    pivec2 = revenuevec2 .- mc_betado .* quant[(data.NameID .== 197) .& (data.year .== 2016)];
+
+    if option == "own"
+        return(revenuevec[1])
+    elseif option == "total"
+        return(revenuevec2[1])
+    elseif option == "ownpi"
+        return(pivec[1])
+    elseif option == "totalpi"
+        return(pivec2[1])
+    end
+    
+end
+price_range = range(1.8, 4.0, step = 0.05);
+ownpi_res = f_revenue.(
+    price_range, 
+    Ref(data), Ref(datalist), Ref(parameter), Ref(delta), Ref(beta_hat), Ref(gmm_res.minimizer),
+    "ownpi"
+);
+plot(price_range, ownpi_res, legend = false)
+
+```
+
+```{julia}
+price_range = range(1.8, 4.0, step = 0.05);
+totalpi_res = f_revenue.(
+    price_range, 
+    Ref(data), Ref(datalist), Ref(parameter), Ref(delta), Ref(beta_hat), Ref(gmm_res.minimizer),
+    "totalpi"
+);
+plot(price_range, totalpi_res, legend = false)
+
+```
+
+```{julia}
+ownpi_optim_res = optimize(
+    x -> - f_revenue(x[1], data, datalist, parameter, delta, beta_hat, gmm_res.minimizer, "ownpi"),
+    [3.0]
+)
+
+ownpi_optim_res.minimizer
+```
+
+```{julia}
+totalpi_optim_res = optimize(
+    x -> - f_revenue(x[1], data, datalist, parameter, delta, beta_hat, gmm_res.minimizer, "totalpi"),
+    [3.0]
+)
+totalpi_optim_res.minimizer
+```

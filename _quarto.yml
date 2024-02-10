@@ -9,6 +9,7 @@ book:
   chapters:
     - index.qmd
     - 1_demand_estimation_1.qmd
+    - 1_demand_estimation_2.qmd
 
 format:
   html:
