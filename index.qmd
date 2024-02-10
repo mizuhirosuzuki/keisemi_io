@@ -1,0 +1,9 @@
+---
+title: "【非公式】実証ビジネス・エコノミクス Juliaでの実装"
+---
+
+This is a Quarto website.
+
+To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
+
+

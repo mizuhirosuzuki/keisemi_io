@@ -1,0 +1,20 @@
+project:
+  type: book
+  output-dir: docs
+
+book:
+  title: "【非公式】実証ビジネス・エコノミクス Juliaでの実装"
+  author: "Mizuhiro Suzuki"
+  date: ""
+  chapters:
+    - index.qmd
+    - 1_demand_estimation_1.qmd
+
+format:
+  html:
+    theme: cosmo
+  pdf:
+    documentclass: scrreprt
+
+editor: visual
+

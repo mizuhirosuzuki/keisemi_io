@@ -1,0 +1,33 @@
+---
+title: "需要モデルの推定（基礎編1）"
+format:
+  html:
+    toc: true
+    html-math-method: katex
+jupyter: julia-1.9
+---
+
+
+```{julia}
+#| label: fig-parametric
+#| fig-cap: "Parametric Plots"
+
+using Plots
+
+plot(sin, 
+     x->sin(2x), 
+     0, 
+     2π, 
+     leg=false, 
+     fill=(0,:lavender))
+
+```
+
+```{julia}
+
+x * y
+
+```
+
+
+
