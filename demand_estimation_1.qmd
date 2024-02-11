@@ -22,21 +22,21 @@ using GLM
 
 ```{julia}
 data = CSV.File(
-    open(read, "data/1_demand_estimation_1/CleanData_20180222.csv", enc"shift-jis"),
+    open(read, "data/demand_estimation/CleanData_20180222.csv", enc"shift-jis"),
     missingstring = ["NA", ""],
     ) |> DataFrame
 first(select(data, Not([:base_color, :option_color])), 5)
 ```
 
 ```{julia}
-dataHH = CSV.read("data/1_demand_estimation_1/HHsize.csv", DataFrame)
+dataHH = CSV.read("data/demand_estimation/HHsize.csv", DataFrame)
 dataHH[!, :HH] = parse.(Int, replace.(dataHH.HH, "," => ""))
 first(dataHH, 5)
 ```
 
 ```{julia}
 dataCPI = CSV.File(
-    open(read, "data/1_demand_estimation_1/zni2015s.csv", enc"shift-jis"), 
+    open(read, "data/demand_estimation/zni2015s.csv", enc"shift-jis"), 
     select = 1:2,
     skipto = 7
     ) |> DataFrame
