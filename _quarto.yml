@@ -13,6 +13,7 @@ book:
     - demand_estimation_merger.qmd
     - entry_exit_basic.qmd
     - entry_exit_application.qmd
+    - single_agent_dynamic_basic.qmd
 
 format:
   html:
