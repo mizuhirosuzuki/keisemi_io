@@ -1,0 +1,129 @@
+---
+title: "参入ゲームの推定（基礎編）"
+format:
+  html:
+    toc: true
+    html-math-method: katex
+jupyter: julia-1.9
+---
+
+```{julia}
+using CSV
+using DataFrames
+using StringEncodings
+using FixedEffectModels
+using RegressionTables
+using Plots
+using LinearAlgebra
+using Statistics
+using Optim
+using Printf
+using ForwardDiff
+using Random
+using GLM
+using Distributions
+```
+
+```{julia}
+data = CSV.File(
+    open(read, "data/entry_exit_basic/MRIData.csv", enc"UTF-8"),
+    missingstring = ["NA", ""],
+    ) |> DataFrame
+first(data, 5)
+```
+
+```{julia}
+dataset = combine(
+    groupby(data, :CityCode),
+    :MRIOwnDum => sum => :NumMRI,
+    [:Population, :Menseki, :PopDensity, :TaxableIncome] .=> mean .=> [:Pop, :Menseki, :PopDen, :Income],   
+);
+dataset[!, :Pop] = dataset.Pop / 1e+6;
+dropmissing!(dataset, :);
+M = nrow(dataset)
+```
+
+## 4
+
+```{julia}
+N_max = 6;
+dataset[dataset.NumMRI .> N_max, :NumMRI] .= N_max;
+```
+
+```{julia}
+function obj(
+        params,
+        dataset,
+        N_max
+    )
+
+    alpha1 = params[1];
+    alpha2 = -params[2:N_max];
+    alpha = vcat(alpha1, alpha2);
+    gamma = params[N_max + 1];
+    
+    NumMRI = dataset.NumMRI;
+    M = nrow(dataset);
+    pop = dataset.Pop .* ones((1, N_max));
+    
+    V = LowerTriangular(ones(N_max) .* alpha');
+        
+    VV = (V * ones(N_max, M))';
+    
+    F = gamma .* ones((M, N_max));
+    
+    profit = pop .* VV .- F;
+    
+    phi = cdf.(Normal(0, 1), profit);
+    
+    mat = hcat(ones(M) .- phi[:, 1], phi[:, 1:(N_max - 1)] .- phi[:, 2:N_max], phi[:, N_max]);
+    
+    ml = log.(reduce(.+, [(dataset.NumMRI .== i) .* mat[:, (i + 1)] for i = 0:N_max]));
+    
+    return - sum(ml) / M
+    
+end
+```
+
+```{julia}
+obj_for_Optim = TwiceDifferentiable(
+    x -> obj(x, dataset, N_max),
+    ones(N_max + 1);
+    autodiff = :forward
+);
+@time optim_res = optimize(
+    obj_for_Optim,
+    zeros(N_max + 1),
+    repeat([Inf], N_max + 1),
+    ones(N_max + 1),
+#     Optim.Options(show_trace = true)
+);
+```
+
+```{julia}
+se = sqrt.(diag(inv(obj_for_Optim.H) ./ M));
+DataFrame(
+    estimates = optim_res.minimizer,
+    se = se
+)
+
+```
+
+## 5
+
+```{julia}
+alpha_est = optim_res.minimizer[1:N_max];
+gamma_est = optim_res.minimizer[N_max + 1];
+
+EntryThreshold = zeros(Int64, (N_max, 2));
+
+deno = alpha_est[1];
+EntryThreshold[1,:] .= round(gamma_est / deno .* 1e+6);
+for i = 2:N_max
+    deno = deno - alpha_est[i];
+    EntryThreshold[i, :] = round.([gamma_est / deno .* 1e+6, gamma_est / deno .* 1e+6 / i]);
+end
+
+EntryThreshold    
+```
+

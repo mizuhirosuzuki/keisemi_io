@@ -11,6 +11,8 @@ book:
     - demand_estimation_1.qmd
     - demand_estimation_2.qmd
     - demand_estimation_merger.qmd
+    - entry_exit_basic.qmd
+    - entry_exit_application.qmd
 
 format:
   html:
