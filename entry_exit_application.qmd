@@ -25,6 +25,7 @@ using GLM
 using NLopt
 using StatsPlots
 using Distributions
+using CategoricalArrays
 # using BenchmarkTools
 ```
 
@@ -354,7 +355,7 @@ fixed_cost_cf = Matrix(data_cf[:, [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNe
     (sqrt.(1.0 - rho_est^2) .* u_mIm);
 
 prof_excl_comp_cf = var_profit_cf - fixed_cost_cf;
-prof_excl_comp_cf[(data_cf.DepNeurology .== 1) .| (data_cf.DepNeurosurgery .== 1), :] .= 1e+5
+prof_excl_comp_cf[(data_cf.DepNeurology .== 1) .| (data_cf.DepNeurosurgery .== 1), :] .= 1e+5;
 ```
 
 ```{julia}
@@ -372,11 +373,21 @@ data_predicted_cf[!, :EntryPred] = EntryPred_cf;
 data_predicted_cf_agg = combine(
     groupby(data_predicted_cf, :CityCode),
     :MRIOwnDum => sum => :Actual,
-    :EntryPred => sum => :Predict
+    :EntryPred => sum => :CounterFactual
 );
 
-data_predicted_cf_agg = stack(data_predicted_cf_agg, [:Actual, :Predict]);
-data_predicted_cf_sum = combine(groupby(data_predicted_cf_agg, [:variable, :value]), nrow);
+data_predicted_cf_agg = stack(data_predicted_cf_agg, [:Actual, :CounterFactual]);
+data_predicted_cf_sum = combine(groupby(
+    vcat(data_predicted_agg, data_predicted_cf_agg[data_predicted_cf_agg.variable .== "CounterFactual", :]),
+    [:variable, :value]
+    ), nrow);
+
+transform!(
+    data_predicted_cf_sum, 
+    :variable => 
+    (x -> categorical(x; ordered = true, levels = ["Actual", "Predict", "CounterFactual"])) => 
+    :variable
+    )
 sort!(data_predicted_cf_sum, [:variable, :value]);
 groupedbar(
     data_predicted_cf_sum.nrow, 
@@ -390,7 +401,78 @@ groupedbar(
 ```
 
 ```{julia}
-combine(groupby(data_predicted_cf_agg, :variable), :value => sum)
+vcat(
+    combine(groupby(
+        data_predicted_agg, :variable
+        ), :value => sum),
+    combine(groupby(
+        data_predicted_cf_agg, :variable
+        ), :value => sum) |> 
+        filter(:variable => (x -> x .== "CounterFactual"))
+)
+```
+
+```{julia}
+data_predicted_agg_wo_neuro = combine(
+    groupby(
+        filter([:DepNeurology, :DepNeurosurgery] => ((d1, d2) -> (d1 .== 1) .& (d2 .== 1)), data_predicted),
+        :CityCode
+        ),
+    :MRIOwnDum => sum => :Actual,
+    :EntryPred => sum => :Predict
+);
+
+data_predicted_agg_wo_neuro = stack(data_predicted_agg_wo_neuro, [:Actual, :Predict]);
+data_predicted_sum_wo_neuro = combine(groupby(data_predicted_agg_wo_neuro, [:variable, :value]), nrow);
+
+data_predicted_cf_agg_wo_neuro = combine(
+    groupby(
+        # data_predicted_cf, 
+        filter([:DepNeurology, :DepNeurosurgery] => ((d1, d2) -> (d1 .== 1) .& (d2 .== 1)), data_predicted_cf),
+        :CityCode
+        ),
+    :MRIOwnDum => sum => :Actual,
+    :EntryPred => sum => :CounterFactual
+);
+
+data_predicted_cf_agg_wo_neuro = stack(data_predicted_cf_agg_wo_neuro, [:Actual, :CounterFactual]);
+
+data_predicted_cf_sum_wo_neuro = combine(groupby(
+    vcat(
+        data_predicted_agg_wo_neuro, 
+        data_predicted_cf_agg_wo_neuro[data_predicted_cf_agg_wo_neuro.variable .== "CounterFactual", :]
+        ),
+    [:variable, :value]
+    ), nrow)
+
+transform!(
+    data_predicted_cf_sum_wo_neuro, 
+    :variable => 
+    (x -> categorical(x; ordered = true, levels = ["Actual", "Predict", "CounterFactual"])) => 
+    :variable
+    )
+sort!(data_predicted_cf_sum_wo_neuro, [:variable, :value]);
+groupedbar(
+    data_predicted_cf_sum_wo_neuro.nrow, 
+    group = data_predicted_cf_sum_wo_neuro.variable,
+    xlabel = "value", 
+    ylabel = "count",
+    bar_width = 0.67,
+    xticks = (1:5, 0:4),
+    lw = 0
+)
+```
+
+```{julia}
+vcat(
+    combine(groupby(
+        data_predicted_agg_wo_neuro, :variable
+        ), :value => sum),
+    combine(groupby(
+        data_predicted_cf_agg_wo_neuro, :variable
+        ), :value => sum) |> 
+        filter(:variable => (x -> x .== "CounterFactual"))
+)
 ```
 
 ```{julia}
