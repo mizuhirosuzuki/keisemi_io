@@ -6,5 +6,6 @@
 _book/**/*
 archive/**/*
 data/**/*
+tmp/**/*
 
 /.quarto/

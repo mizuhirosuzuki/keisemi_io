@@ -8,6 +8,7 @@ jupyter: julia-1.9
 ---
 
 ```{julia}
+using CSV
 using LinearAlgebra
 using Random
 using StatsBase
@@ -17,11 +18,10 @@ using Plots
 using ShiftedArrays
 using ForwardDiff
 using Optim
-# using GLMakie
 ```
 
 ```{julia}
-theta_true = [0.004, 0.003]
+theta_true = [0.004, 0.003];
 
 beta = 0.99;
 Euler_const = Float64(MathConstants.eulergamma);
@@ -351,17 +351,6 @@ transform!(
     )
 ```
 
-```{julia}
-combine(
-    groupby(
-        data_gen |>
-            filter(:period => (x -> x != (num_period - num_period_obs + 1))),
-        [:mileage_lag, :mileage, :action_lag]
-    ),
-    nrow
-)
-
-```
 
 ```{julia}
 
@@ -614,4 +603,8 @@ theta_se = sqrt.(diag(inv(hessian)));
 
 ```{julia}
 DataFrame(theta_est = theta_est, theta_se = theta_se)
+```
+
+```{julia}
+CSV.write("tmp/single_agent_dynamic_basic/data_gen.csv", data_gen);
 ```

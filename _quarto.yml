@@ -14,6 +14,8 @@ book:
     - entry_exit_basic.qmd
     - entry_exit_application.qmd
     - single_agent_dynamic_basic.qmd
+    - single_agent_dynamic_application.qmd
+    - dynamic_game_data.qmd
 
 format:
   html:

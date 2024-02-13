@@ -1,0 +1,56 @@
+---
+title: "動学ゲームの推定（推定 1）"
+format:
+  html:
+    toc: true
+    html-math-method: katex
+jupyter: julia-1.9
+---
+
+```{julia}
+using CSV, Tables
+using DataFrames
+```
+
+```{julia}
+FakeData = CSV.File("tmp/dynamic_game/FakeData.csv", header=false) |> Tables.matrix;
+```
+
+```{julia}
+
+EstimatedCCP1 = zeros(8, 1);
+EstimatedCCP2 = zeros(8, 1);
+
+for s in 1:8
+    SubData = FakeData[FakeData[:, 3] .== s, :];
+    EstimatedCCP1[s] = mean(SubData[:, 7] .== 0);
+    EstimatedCCP2[s] = mean(SubData[:, 8] .== 0);
+end
+
+```
+
+```{julia}
+
+EstimatedTransition = zeros(2, 2);
+
+SubData = hcat(FakeData, [[0]; FakeData[1:(end - 1), 4]]);
+SubData = SubData[SubData[:, 2] .!= 1, :];
+
+for z in 1:2
+    SubDataZ = SubData[SubData[:, 4] .== z, :];
+    EstimatedTransition[z, z] = mean(SubDataZ[:, 9] .== z);
+    EstimatedTransition[z, 3 - z] = 1 - EstimatedTransition[z, z];
+end
+
+```
+
+```{julia}
+hcat(EstimatedCCP1, EstimatedCCP2)
+```
+
+```{julia}
+EstimatedTransition
+```
+
+## Step 2
+
