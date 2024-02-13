@@ -1,5 +1,5 @@
 ---
-title: "【非公式】実証ビジネス・エコノミクス Juliaでの実装"
+title: "はじめに"
 ---
 
 This is a Quarto website.
