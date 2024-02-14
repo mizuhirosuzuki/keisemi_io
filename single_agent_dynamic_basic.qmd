@@ -1,5 +1,5 @@
 ---
-title: "シングルエージェント動学モデルの推定（基礎編）"
+title: "基礎編"
 format:
   html:
     toc: true

@@ -1,5 +1,5 @@
 ---
-title: "需要モデルの推定（基礎編 1）"
+title: "基礎編 1"
 format:
   html:
     toc: true

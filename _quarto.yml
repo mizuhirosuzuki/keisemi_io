@@ -8,14 +8,23 @@ book:
   date: ""
   chapters:
     - index.qmd
-    - demand_estimation_1.qmd
-    - demand_estimation_2.qmd
-    - demand_estimation_merger.qmd
-    - entry_exit_basic.qmd
-    - entry_exit_application.qmd
-    - single_agent_dynamic_basic.qmd
-    - single_agent_dynamic_application.qmd
-    - dynamic_game_data.qmd
+    - part: 消費者需要モデルの推定
+      chapters:
+        - demand_estimation_1.qmd
+        - demand_estimation_2.qmd
+        - demand_estimation_merger.qmd
+    - part: 参入ゲームの推定
+      chapters:
+        - entry_exit_basic.qmd
+        - entry_exit_application.qmd
+    - part: シングルエージェント動学モデルの推定
+      chapters:
+        - single_agent_dynamic_basic.qmd
+        - single_agent_dynamic_application.qmd
+    - part: 動学ゲームの推定
+      chapters:
+        - dynamic_game_data.qmd
+        - dynamic_game_estimation_1.qmd
 
 format:
   html:

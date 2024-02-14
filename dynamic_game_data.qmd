@@ -1,5 +1,5 @@
 ---
-title: "動学ゲームの推定（疑似データの生成）"
+title: "疑似データの生成"
 format:
   html:
     toc: true
@@ -12,6 +12,7 @@ using Random
 using StatsBase
 using CSV, Tables
 using LinearAlgebra
+using JLD2
 ```
 
 ```{julia}
@@ -687,6 +688,6 @@ end
 
 ```{julia}
 
-CSV.write("tmp/dynamic_game/FakeData.csv", Tables.table(FakeData), writeheader = false)
+@save "tmp/dynamic_game/data_workspace.jld2" FakeData CCP1UpdatedMat CCP2UpdatedMat
 
 ```

@@ -1,5 +1,5 @@
 ---
-title: "参入ゲームの推定（応用編）"
+title: "応用編"
 format:
   html:
     toc: true
