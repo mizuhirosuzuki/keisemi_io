@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.280">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>【非公式】実証ビジネス・エコノミクス Juliaでの実装 - 10&nbsp; 推定 1</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./dynamic_game_data.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+    <div class="container-fluid d-flex justify-content-between">
+      <h1 class="quarto-secondary-nav-title"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">推定 1</span></h1>
+      <button type="button" class="quarto-btn-toggle btn" aria-label="Show secondary navigation">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">【非公式】実証ビジネス・エコノミクス Juliaでの実装</a> 
+    </div>
+      </div>
+      <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+      </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">はじめに</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">消費者需要モデルの推定</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./demand_estimation_1.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">基礎編 1</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./demand_estimation_2.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">基礎編 2</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./demand_estimation_merger.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">応用編</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true">参入ゲームの推定</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./entry_exit_basic.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">基礎編</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./entry_exit_application.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">応用編</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="true">シングルエージェント動学モデルの推定</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./single_agent_dynamic_basic.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">基礎編</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./single_agent_dynamic_application.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">応用編</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true">動学ゲームの推定</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./dynamic_game_data.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">疑似データの生成</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./dynamic_game_estimation_1.html" class="sidebar-item-text sidebar-link active"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">推定 1</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#step-2" id="toc-step-2" class="nav-link active" data-scroll-target="#step-2"><span class="toc-section-number">10.1</span>  Step 2</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title d-none d-lg-block"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">推定 1</span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CSV</span>, <span class="bu">Tables</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DataFrames</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Random</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Distributions</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">JLD2</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StatsBase</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LinearAlgebra</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Optim</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>beta <span class="op">=</span> <span class="fl">0.8</span>;</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cn">eulergamma</span> <span class="op">=</span> <span class="fu">Float64</span>(<span class="bu">MathConstants</span>.<span class="cn">eulergamma</span>);</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>TransitionMat <span class="op">=</span> [<span class="fl">0.7</span> <span class="fl">0.3</span>; <span class="fl">0.4</span> <span class="fl">0.6</span>]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>NumSimMarkets <span class="op">=</span> <span class="fl">500</span>;</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>NumSimPeriods <span class="op">=</span> <span class="fl">50</span>;</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">123</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Parameters <span class="op">=</span> [</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.3</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.2</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>];</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>TrueParameterValues <span class="op">=</span> [</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.3</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span>,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.2</span>,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>];</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@load</span> <span class="st">"tmp/dynamic_game/data_workspace.jld2"</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="5">
+<details>
+<summary>Functions defined previously</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi1gen</span>(theta)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> [</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>] <span class="op">+</span> theta[<span class="fl">3</span>],</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>] <span class="op">+</span> theta[<span class="fl">2</span>] <span class="op">+</span> theta[<span class="fl">3</span>],</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>],</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>] <span class="op">+</span> theta[<span class="fl">2</span>]</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> [theta[<span class="fl">4</span>], <span class="fl">0</span>, theta[<span class="fl">5</span>]];</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(base, <span class="fl">3</span>), (<span class="fl">8</span>, <span class="op">:</span>));</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(invdiv, <span class="fl">8</span>), (<span class="op">:</span>, <span class="fl">8</span>))<span class="ch">';</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> base <span class="op">+</span> invdiv;</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi2gen</span>(theta)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> [</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>] <span class="op">+</span> theta[<span class="fl">8</span>],</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>] <span class="op">+</span> theta[<span class="fl">7</span>] <span class="op">+</span> theta[<span class="fl">8</span>],</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>],</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>] <span class="op">+</span> theta[<span class="fl">7</span>]</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> [theta[<span class="fl">9</span>], <span class="fl">0</span>, theta[<span class="fl">10</span>]];</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(base, <span class="fl">3</span>), (<span class="fl">8</span>, <span class="op">:</span>));</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(invdiv, <span class="fl">8</span>), (<span class="op">:</span>, <span class="fl">8</span>))<span class="ch">';</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> base <span class="op">+</span> invdiv;</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP1Transform</span>(x)</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">1</span>];</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">2</span>];</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">3</span>] x[<span class="fl">3</span>] <span class="fl">0</span>;</span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">4</span>] x[<span class="fl">4</span>] <span class="fl">0</span>;</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">5</span>];</span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">6</span>];</span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">7</span>] x[<span class="fl">7</span>] <span class="fl">0</span>;</span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">8</span>] x[<span class="fl">8</span>] <span class="fl">0</span>;</span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP2Transform</span>(x)</span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">1</span>];</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">2</span>] x[<span class="fl">2</span>] <span class="fl">0</span>;</span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">3</span>];</span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">4</span>] x[<span class="fl">4</span>] <span class="fl">0</span>;</span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">5</span>];</span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">6</span>] x[<span class="fl">6</span>] <span class="fl">0</span>;</span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">7</span>];</span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">8</span>] x[<span class="fl">8</span>] <span class="fl">0</span>;</span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fP</span>(Matrix1, Vec1, Vec2)</span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>    TempMat0 <span class="op">=</span> <span class="fu">kron</span>(Matrix1, <span class="fu">ones</span>(<span class="fl">4</span>, <span class="fl">4</span>));</span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> [</span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">1</span>];</span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">2</span>];</span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">3</span>] Vec1[<span class="fl">3</span>];</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">4</span>] Vec1[<span class="fl">4</span>];</span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">5</span>];</span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">6</span>];</span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">7</span>] Vec1[<span class="fl">7</span>];</span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">8</span>] Vec1[<span class="fl">8</span>];</span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> <span class="fu">kron</span>(TempMat1, [<span class="fl">1</span> <span class="fl">1</span>]);</span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> <span class="fu">hcat</span>(TempMat1, TempMat1);</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> [</span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">1</span>];</span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">2</span>] Vec2[<span class="fl">2</span>];</span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">3</span>];</span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">4</span>] Vec2[<span class="fl">4</span>];</span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">5</span>];</span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">6</span>] Vec2[<span class="fl">6</span>];</span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">7</span>];</span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">8</span>] Vec2[<span class="fl">8</span>];</span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> <span class="fu">kron</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">4</span>), TempMat2);</span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> TempMat2;</span>
+<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi1PsigmaGen</span>(pi1, Mat2)</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a>    pi1_dec <span class="op">=</span> pi1[<span class="op">:</span>, <span class="fl">1</span>];</span>
+<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a>    pi1_0 <span class="op">=</span> pi1[<span class="op">:</span>, <span class="fl">2</span>];</span>
+<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>    pi1_inc <span class="op">=</span> pi1[<span class="op">:</span>, <span class="fl">3</span>];</span>
+<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a>    pi1_dec <span class="op">=</span> (pi1_dec <span class="op">.*</span> Mat2) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
+<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a>    pi1_0 <span class="op">=</span> (pi1_0 <span class="op">.*</span> Mat2) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
+<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a>    pi1_inc <span class="op">=</span> (pi1_inc <span class="op">.*</span> Mat2) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
+<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">hcat</span>(</span>
+<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a>        pi1_dec, pi1_0, pi1_inc</span>
+<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi2PsigmaGen</span>(pi2, Mat1)</span>
+<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>    pi2_dec <span class="op">=</span> pi2[<span class="op">:</span>, <span class="fl">1</span>];</span>
+<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a>    pi2_0 <span class="op">=</span> pi2[<span class="op">:</span>, <span class="fl">2</span>];</span>
+<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a>    pi2_inc <span class="op">=</span> pi2[<span class="op">:</span>, <span class="fl">3</span>];</span>
+<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>    pi2_dec <span class="op">=</span> (pi2_dec <span class="op">.*</span> Mat1) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
+<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a>    pi2_0 <span class="op">=</span> (pi2_0 <span class="op">.*</span> Mat1) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
+<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a>    pi2_inc <span class="op">=</span> (pi2_inc <span class="op">.*</span> Mat1) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
+<span id="cb5-129"><a href="#cb5-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-130"><a href="#cb5-130" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">hcat</span>(</span>
+<span id="cb5-131"><a href="#cb5-131" aria-hidden="true" tabindex="-1"></a>        pi2_dec, pi2_0, pi2_inc</span>
+<span id="cb5-132"><a href="#cb5-132" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb5-133"><a href="#cb5-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-134"><a href="#cb5-134" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-135"><a href="#cb5-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-136"><a href="#cb5-136" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP1LogTransform</span>(x)</span>
+<span id="cb5-137"><a href="#cb5-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-138"><a href="#cb5-138" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
+<span id="cb5-139"><a href="#cb5-139" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">1</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">1</span>]);</span>
+<span id="cb5-140"><a href="#cb5-140" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">2</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">2</span>]);</span>
+<span id="cb5-141"><a href="#cb5-141" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">3</span>]) <span class="fu">log</span>(x[<span class="fl">3</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-142"><a href="#cb5-142" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">4</span>]) <span class="fu">log</span>(x[<span class="fl">4</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-143"><a href="#cb5-143" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">5</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">5</span>]);</span>
+<span id="cb5-144"><a href="#cb5-144" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">6</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">6</span>]);</span>
+<span id="cb5-145"><a href="#cb5-145" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">7</span>]) <span class="fu">log</span>(x[<span class="fl">7</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-146"><a href="#cb5-146" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">8</span>]) <span class="fu">log</span>(x[<span class="fl">8</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-147"><a href="#cb5-147" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb5-148"><a href="#cb5-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-149"><a href="#cb5-149" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-150"><a href="#cb5-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-151"><a href="#cb5-151" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP2LogTransform</span>(x)</span>
+<span id="cb5-152"><a href="#cb5-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-153"><a href="#cb5-153" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
+<span id="cb5-154"><a href="#cb5-154" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">1</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">1</span>]);</span>
+<span id="cb5-155"><a href="#cb5-155" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">2</span>]) <span class="fu">log</span>(x[<span class="fl">2</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-156"><a href="#cb5-156" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">3</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">3</span>]);</span>
+<span id="cb5-157"><a href="#cb5-157" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">4</span>]) <span class="fu">log</span>(x[<span class="fl">4</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-158"><a href="#cb5-158" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">5</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">5</span>]);</span>
+<span id="cb5-159"><a href="#cb5-159" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">6</span>]) <span class="fu">log</span>(x[<span class="fl">6</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-160"><a href="#cb5-160" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">7</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">7</span>]);</span>
+<span id="cb5-161"><a href="#cb5-161" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">8</span>]) <span class="fu">log</span>(x[<span class="fl">8</span>]) <span class="fl">0</span>;</span>
+<span id="cb5-162"><a href="#cb5-162" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb5-163"><a href="#cb5-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-164"><a href="#cb5-164" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-165"><a href="#cb5-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-166"><a href="#cb5-166" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fP_a1given</span>(Matrix1, Vec2)</span>
+<span id="cb5-167"><a href="#cb5-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-168"><a href="#cb5-168" aria-hidden="true" tabindex="-1"></a>    TempMat0 <span class="op">=</span> <span class="fu">kron</span>(Matrix1, <span class="fu">ones</span>(<span class="fl">4</span>, <span class="fl">4</span>));</span>
+<span id="cb5-169"><a href="#cb5-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-170"><a href="#cb5-170" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> [</span>
+<span id="cb5-171"><a href="#cb5-171" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">1</span>] Vec2[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">1</span>];</span>
+<span id="cb5-172"><a href="#cb5-172" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">2</span>] Vec2[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">2</span>] Vec2[<span class="fl">2</span>];</span>
+<span id="cb5-173"><a href="#cb5-173" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">3</span>] Vec2[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">3</span>];</span>
+<span id="cb5-174"><a href="#cb5-174" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">4</span>] Vec2[<span class="fl">4</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">4</span>] Vec2[<span class="fl">4</span>];</span>
+<span id="cb5-175"><a href="#cb5-175" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">5</span>] Vec2[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">5</span>];</span>
+<span id="cb5-176"><a href="#cb5-176" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">6</span>] Vec2[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">6</span>] Vec2[<span class="fl">6</span>];</span>
+<span id="cb5-177"><a href="#cb5-177" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">7</span>] Vec2[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">7</span>];</span>
+<span id="cb5-178"><a href="#cb5-178" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">8</span>] Vec2[<span class="fl">8</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">8</span>] Vec2[<span class="fl">8</span>];</span>
+<span id="cb5-179"><a href="#cb5-179" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb5-180"><a href="#cb5-180" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> <span class="fu">hcat</span>(TempMat2, TempMat2);</span>
+<span id="cb5-181"><a href="#cb5-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-182"><a href="#cb5-182" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
+<span id="cb5-183"><a href="#cb5-183" aria-hidden="true" tabindex="-1"></a>        <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
+<span id="cb5-184"><a href="#cb5-184" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>);</span>
+<span id="cb5-185"><a href="#cb5-185" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
+<span id="cb5-186"><a href="#cb5-186" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
+<span id="cb5-187"><a href="#cb5-187" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>)<span class="ch">';</span></span>
+<span id="cb5-188"><a href="#cb5-188" aria-hidden="true" tabindex="-1"></a>    output1 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat2 <span class="op">.*</span> MatAdjustMinus1 <span class="op">.*</span> MatAdjustMinus2;</span>
+<span id="cb5-189"><a href="#cb5-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-190"><a href="#cb5-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-191"><a href="#cb5-191" aria-hidden="true" tabindex="-1"></a>    ForZero <span class="op">=</span> <span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">2</span>));</span>
+<span id="cb5-192"><a href="#cb5-192" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">kron</span>(ForZero, <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">2</span>));</span>
+<span id="cb5-193"><a href="#cb5-193" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">hcat</span>(MatAdjustZero, MatAdjustZero);</span>
+<span id="cb5-194"><a href="#cb5-194" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">vcat</span>(MatAdjustZero, MatAdjustZero);</span>
+<span id="cb5-195"><a href="#cb5-195" aria-hidden="true" tabindex="-1"></a>    output2 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat2 <span class="op">.*</span> MatAdjustZero;</span>
+<span id="cb5-196"><a href="#cb5-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-197"><a href="#cb5-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-198"><a href="#cb5-198" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
+<span id="cb5-199"><a href="#cb5-199" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
+<span id="cb5-200"><a href="#cb5-200" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>);</span>
+<span id="cb5-201"><a href="#cb5-201" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
+<span id="cb5-202"><a href="#cb5-202" aria-hidden="true" tabindex="-1"></a>        <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
+<span id="cb5-203"><a href="#cb5-203" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>)<span class="ch">';</span></span>
+<span id="cb5-204"><a href="#cb5-204" aria-hidden="true" tabindex="-1"></a>    output3 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat2 <span class="op">.*</span> MatAdjustPlus1 <span class="op">.*</span> MatAdjustPlus2;</span>
+<span id="cb5-205"><a href="#cb5-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-206"><a href="#cb5-206" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [output1, output2, output3]</span>
+<span id="cb5-207"><a href="#cb5-207" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb5-208"><a href="#cb5-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-209"><a href="#cb5-209" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fP_a2given</span>(Matrix1, Vec1)</span>
+<span id="cb5-210"><a href="#cb5-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-211"><a href="#cb5-211" aria-hidden="true" tabindex="-1"></a>    TempMat0 <span class="op">=</span> <span class="fu">kron</span>(Matrix1, <span class="fu">ones</span>(<span class="fl">4</span>, <span class="fl">4</span>));</span>
+<span id="cb5-212"><a href="#cb5-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-213"><a href="#cb5-213" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> [</span>
+<span id="cb5-214"><a href="#cb5-214" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">1</span>] Vec1[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">1</span>];</span>
+<span id="cb5-215"><a href="#cb5-215" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">2</span>] Vec1[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">2</span>];</span>
+<span id="cb5-216"><a href="#cb5-216" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">3</span>] Vec1[<span class="fl">3</span>] Vec1[<span class="fl">3</span>];</span>
+<span id="cb5-217"><a href="#cb5-217" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">4</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">4</span>] Vec1[<span class="fl">4</span>] Vec1[<span class="fl">4</span>];</span>
+<span id="cb5-218"><a href="#cb5-218" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">5</span>] Vec1[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">5</span>];</span>
+<span id="cb5-219"><a href="#cb5-219" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">6</span>] Vec1[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">6</span>];</span>
+<span id="cb5-220"><a href="#cb5-220" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">7</span>] Vec1[<span class="fl">7</span>] Vec1[<span class="fl">7</span>];</span>
+<span id="cb5-221"><a href="#cb5-221" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">8</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">8</span>] Vec1[<span class="fl">8</span>] Vec1[<span class="fl">8</span>];</span>
+<span id="cb5-222"><a href="#cb5-222" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb5-223"><a href="#cb5-223" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> <span class="fu">kron</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">2</span>), TempMat1);</span>
+<span id="cb5-224"><a href="#cb5-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-225"><a href="#cb5-225" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>);</span>
+<span id="cb5-226"><a href="#cb5-226" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>)<span class="ch">';</span></span>
+<span id="cb5-227"><a href="#cb5-227" aria-hidden="true" tabindex="-1"></a>    output1 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> MatAdjustMinus1 <span class="op">.*</span> MatAdjustMinus2;</span>
+<span id="cb5-228"><a href="#cb5-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-229"><a href="#cb5-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-230"><a href="#cb5-230" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
+<span id="cb5-231"><a href="#cb5-231" aria-hidden="true" tabindex="-1"></a>        <span class="fu">repeat</span>([<span class="fl">1</span>, <span class="fl">0</span>], <span class="fl">4</span>)<span class="ch">',</span></span>
+<span id="cb5-232"><a href="#cb5-232" aria-hidden="true" tabindex="-1"></a>        <span class="fu">repeat</span>([<span class="fl">0</span>, <span class="fl">1</span>], <span class="fl">4</span>)<span class="ch">',</span></span>
+<span id="cb5-233"><a href="#cb5-233" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">4</span>);</span>
+<span id="cb5-234"><a href="#cb5-234" aria-hidden="true" tabindex="-1"></a>    output2 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> MatAdjustZero;</span>
+<span id="cb5-235"><a href="#cb5-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-236"><a href="#cb5-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-237"><a href="#cb5-237" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>);</span>
+<span id="cb5-238"><a href="#cb5-238" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>)<span class="ch">';</span></span>
+<span id="cb5-239"><a href="#cb5-239" aria-hidden="true" tabindex="-1"></a>    output3 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> MatAdjustPlus1 <span class="op">.*</span> MatAdjustPlus2;</span>
+<span id="cb5-240"><a href="#cb5-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-241"><a href="#cb5-241" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [output1, output2, output3]</span>
+<span id="cb5-242"><a href="#cb5-242" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="6">
+<pre><code>fP_a2given (generic function with 1 method)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>EstimatedCCP1 <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">1</span>);</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>EstimatedCCP2 <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">1</span>);</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> s <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    SubData <span class="op">=</span> FakeData[FakeData[<span class="op">:</span>, <span class="fl">3</span>] <span class="op">.==</span> s, <span class="op">:</span>];</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    EstimatedCCP1[s] <span class="op">=</span> <span class="fu">mean</span>(SubData[<span class="op">:</span>, <span class="fl">7</span>] <span class="op">.==</span> <span class="fl">0</span>);</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    EstimatedCCP2[s] <span class="op">=</span> <span class="fu">mean</span>(SubData[<span class="op">:</span>, <span class="fl">8</span>] <span class="op">.==</span> <span class="fl">0</span>);</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>EstimatedTransition <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">2</span>);</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>SubData <span class="op">=</span> <span class="fu">hcat</span>(FakeData, [[<span class="fl">0</span>]; FakeData[<span class="fl">1</span><span class="op">:</span>(<span class="kw">end</span> <span class="op">-</span> <span class="fl">1</span>), <span class="fl">4</span>]]);</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>SubData <span class="op">=</span> SubData[SubData[<span class="op">:</span>, <span class="fl">2</span>] <span class="op">.!=</span> <span class="fl">1</span>, <span class="op">:</span>];</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> z <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    SubDataZ <span class="op">=</span> SubData[SubData[<span class="op">:</span>, <span class="fl">4</span>] <span class="op">.==</span> z, <span class="op">:</span>];</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    EstimatedTransition[z, z] <span class="op">=</span> <span class="fu">mean</span>(SubDataZ[<span class="op">:</span>, <span class="fl">9</span>] <span class="op">.==</span> z);</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    EstimatedTransition[z, <span class="fl">3</span> <span class="op">-</span> z] <span class="op">=</span> <span class="fl">1</span> <span class="op">-</span> EstimatedTransition[z, z];</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hcat</span>(EstimatedCCP1, EstimatedCCP2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="9">
+<pre><code>8×2 Matrix{Float64}:
+ 0.671276  0.718293
+ 0.70041   0.800378
+ 0.827299  0.746308
+ 0.797659  0.767725
+ 0.705617  0.714142
+ 0.725334  0.761288
+ 0.789778  0.76567
+ 0.787342  0.736392</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>EstimatedTransition</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>2×2 Matrix{Float64}:
+ 0.700071  0.299929
+ 0.400289  0.599711</code></pre>
+</div>
+</div>
+<section id="step-2" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="step-2"><span class="header-section-number">10.1</span> Step 2</h2>
+<div class="cell" data-execution_count="10">
+<details>
+<summary>CCP to Value to Prediction</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP_to_Value_to_prediction</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    theta,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    CCP1,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    CCP2,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    TransitionMat,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    beta</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    CCP1Adjuster <span class="op">=</span> [</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span>;</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    CCP1Adjuster <span class="op">=</span> <span class="fu">repeat</span>(CCP1Adjuster, <span class="fl">2</span>);</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>    CCP2Adjuster <span class="op">=</span> [</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span>;</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>    CCP2Adjuster <span class="op">=</span> <span class="fu">repeat</span>(CCP2Adjuster, <span class="fl">2</span>);</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>    pi1 <span class="op">=</span> <span class="fu">pi1gen</span>(theta) <span class="op">.*</span> CCP1Adjuster;</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>    pi2 <span class="op">=</span> <span class="fu">pi2gen</span>(theta) <span class="op">.*</span> CCP2Adjuster;</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>    CCP1Mat <span class="op">=</span> <span class="fu">CCP1Transform</span>(CCP1);</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>    CCP2Mat <span class="op">=</span> <span class="fu">CCP2Transform</span>(CCP2);</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>    fPsigma <span class="op">=</span> <span class="fu">fP</span>(TransitionMat, CCP1, CCP2);</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>    pi1Psigma <span class="op">=</span> <span class="fu">pi1PsigmaGen</span>(pi1, CCP2Mat);</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>    pi2Psigma <span class="op">=</span> <span class="fu">pi2PsigmaGen</span>(pi2, CCP1Mat);</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>    eP1 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP1LogTransform</span>(CCP1);</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>    eP2 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP2LogTransform</span>(CCP2);</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>    ExanteV1 <span class="op">=</span> (</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>        (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>        ((CCP1Mat <span class="op">.*</span> (pi1Psigma <span class="op">+</span> eP1)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>    ExanteV2 <span class="op">=</span> (</span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>        (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a>        ((CCP2Mat <span class="op">.*</span> (pi2Psigma <span class="op">+</span> eP2)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>    fP_a1 <span class="op">=</span> <span class="fu">fP_a1given</span>(TransitionMat, CCP2);</span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>    fP_a2 <span class="op">=</span> <span class="fu">fP_a2given</span>(TransitionMat, CCP1);</span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>    NewSigmaSeed1 <span class="op">=</span> (</span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>        pi1Psigma <span class="op">+</span> beta <span class="op">.*</span> <span class="fu">hcat</span>(fP_a1[<span class="fl">1</span>] <span class="op">*</span> ExanteV1, fP_a1[<span class="fl">2</span>] <span class="op">*</span> ExanteV1, fP_a1[<span class="fl">3</span>] <span class="op">*</span> ExanteV1) <span class="op">.*</span> CCP1Adjuster</span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a>    NewSigmaDeno1 <span class="op">=</span> (</span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sum</span>(<span class="fu">exp</span>.(NewSigmaSeed1), dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span></span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>    NewSigma1 <span class="op">=</span> <span class="fu">exp</span>.(NewSigmaSeed1) <span class="op">./</span> NewSigmaDeno1;</span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>    CCP1UpdatedMat <span class="op">=</span> NewSigma1 <span class="op">.*</span> CCP1Adjuster;</span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>    CCP1Updated <span class="op">=</span> CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>];</span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>    NewSigmaSeed2 <span class="op">=</span> (</span>
+<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>        pi2Psigma <span class="op">+</span> beta <span class="op">.*</span> <span class="fu">hcat</span>(fP_a2[<span class="fl">1</span>] <span class="op">*</span> ExanteV2, fP_a2[<span class="fl">2</span>] <span class="op">*</span> ExanteV2, fP_a2[<span class="fl">3</span>] <span class="op">*</span> ExanteV2) <span class="op">.*</span> CCP2Adjuster</span>
+<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a>    NewSigmaDeno2 <span class="op">=</span> (</span>
+<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sum</span>(<span class="fu">exp</span>.(NewSigmaSeed2), dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span></span>
+<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a>    NewSigma2 <span class="op">=</span> <span class="fu">exp</span>.(NewSigmaSeed2) <span class="op">./</span> NewSigmaDeno2;</span>
+<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>    CCP2UpdatedMat <span class="op">=</span> NewSigma2 <span class="op">.*</span> CCP2Adjuster;</span>
+<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a>    CCP2Updated <span class="op">=</span> CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>];</span>
+<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">hcat</span>(CCP1Updated, CCP2Updated)</span>
+<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-74"><a href="#cb13-74" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<pre><code>CCP_to_Value_to_prediction (generic function with 1 method)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>output <span class="op">=</span> <span class="fu">CCP_to_Value_to_prediction</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    TrueParameterValues,</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>],</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>],</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    TransitionMat,</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    beta</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference between CCP in GDP and predicted CCP"</span>)</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>output <span class="op">-</span> <span class="fu">hcat</span>(CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>], CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Difference between CCP in GDP and predicted CCP</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre><code>8×2 Matrix{Float64}:
+  1.95367e-9   6.91787e-9
+  2.42611e-9  -5.08387e-9
+ -1.33685e-9   5.43541e-9
+ -1.75907e-9  -5.30343e-9
+  1.94553e-9   6.37121e-9
+  2.46917e-9  -5.46061e-9
+ -1.3948e-9    5.44987e-9
+ -2.09866e-9  -6.33131e-9</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>Normalized_TrueParam <span class="op">=</span> [</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">1</span>] <span class="op">-</span> ((<span class="fl">1</span> <span class="op">-</span> beta) <span class="op">/</span> beta) <span class="op">*</span> Parameters[<span class="fl">5</span>],</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">3</span>],</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">4</span>],</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span>,</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">6</span>] <span class="op">+</span> Parameters[<span class="fl">5</span>],</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">2</span>] <span class="op">-</span> ((<span class="fl">1</span> <span class="op">-</span> beta) <span class="op">/</span> beta) <span class="op">*</span> Parameters[<span class="fl">5</span>],</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">3</span>],</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">4</span>],</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span>,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>    Parameters[<span class="fl">6</span>] <span class="op">+</span> Parameters[<span class="fl">5</span>],</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>output_noramlized <span class="op">=</span> <span class="fu">CCP_to_Value_to_prediction</span>(</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>    Normalized_TrueParam,</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>    CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>],</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>    CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>],</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>    TransitionMat,</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>    beta</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference: predicted CCP in true parameter and normalized parameter"</span>)</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>output_noramlized <span class="op">-</span> output</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Difference: predicted CCP in true parameter and normalized parameter</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<pre><code>8×2 Matrix{Float64}:
+ -1.11022e-16   1.11022e-16
+ -1.11022e-16  -1.11022e-16
+  1.11022e-16  -1.11022e-16
+  2.22045e-16  -1.11022e-16
+  1.11022e-16   1.11022e-16
+ -1.11022e-16  -1.11022e-16
+ -1.11022e-16  -1.11022e-16
+  1.11022e-16   2.22045e-16</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="13">
+<details>
+<summary>Objective function</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">obj_fun</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    param,</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    EstimatedCCP1,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    EstimatedCCP2,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    TransitionProb,</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    beta</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>    output <span class="op">=</span> <span class="fu">CCP_to_Value_to_prediction</span>(</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>        param, EstimatedCCP1, EstimatedCCP2, TransitionProb, beta</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">sum</span>((output[<span class="op">:</span>, <span class="fl">1</span>] <span class="op">-</span> EstimatedCCP1)<span class="op">.^</span><span class="fl">2</span>) <span class="op">+</span> <span class="fu">sum</span>((output[<span class="op">:</span>, <span class="fl">2</span>] <span class="op">-</span> EstimatedCCP2)<span class="op">.^</span><span class="fl">2</span>)</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>initial <span class="op">=</span> [Parameters[<span class="fl">1</span><span class="op">:</span><span class="fl">4</span>]; Parameters[<span class="fl">6</span>]];</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>mat_initial2 <span class="op">=</span> initial <span class="op">.*</span> <span class="fu">reshape</span>(<span class="fu">rand</span>(<span class="fu">Uniform</span>(<span class="fl">0.6</span>, <span class="fl">1.2</span>), <span class="fl">50</span>), (<span class="fl">5</span>, <span class="op">:</span>));</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">6</span>, <span class="fl">10</span>);</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    sol <span class="op">=</span> <span class="fu">optimize</span>(</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        x <span class="op">-&gt;</span> <span class="fu">obj_fun</span>(</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>            [x[<span class="fl">1</span>]; x[<span class="fl">3</span><span class="op">:</span><span class="fl">4</span>]; [<span class="fl">0</span>]; x[<span class="fl">5</span>]; x[<span class="fl">2</span>]; x[<span class="fl">3</span><span class="op">:</span><span class="fl">4</span>]; [<span class="fl">0</span>]; x[<span class="fl">5</span>]], </span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>            EstimatedCCP1, EstimatedCCP2, EstimatedTransition, beta</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>            ),</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>        mat_initial2[<span class="op">:</span>, i],</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>        Optim.<span class="fu">Options</span>(show_trace <span class="op">=</span> <span class="cn">false</span>)</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>    result[<span class="op">:</span>, i] <span class="op">=</span> [sol.minimizer; sol.minimum];</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>result_pick <span class="op">=</span> result[<span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, <span class="fu">argmin</span>(result[<span class="fl">6</span>, <span class="op">:</span>])];</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>normalized_trueparam <span class="op">=</span> [</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    Normalized_TrueParam[<span class="fl">1</span>],</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>    Normalized_TrueParam[<span class="fl">6</span>],</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    Normalized_TrueParam[<span class="fl">2</span>],</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>    Normalized_TrueParam[<span class="fl">3</span>],</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    Normalized_TrueParam[<span class="fl">5</span>],</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>];</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="fu">DataFrame</span>(</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    param_est <span class="op">=</span> result_pick,</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    normalized_trueparam <span class="op">=</span> normalized_trueparam</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="16">
+
+<div><div style="float: left;"><span>5×2 DataFrame</span></div><div style="clear: both;"></div></div><div class="data-frame" style="overflow-x: scroll;"><table class="data-frame table table-sm table-striped" style="margin-bottom: 6px;"><thead><tr class="header"><th class="rowNumber" style="font-weight: bold; text-align: right;">Row</th><th style="text-align: left;">param_est</th><th style="text-align: left;">normalized_trueparam</th></tr><tr class="subheader headerLastRow"><th class="rowNumber" style="font-weight: bold; text-align: right;"></th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th></tr></thead><tbody><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">1</td><td style="text-align: right;">0.348787</td><td style="text-align: right;">0.3375</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">2</td><td style="text-align: right;">0.223868</td><td style="text-align: right;">0.2375</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">3</td><td style="text-align: right;">-0.291698</td><td style="text-align: right;">-0.27</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">4</td><td style="text-align: right;">0.492655</td><td style="text-align: right;">0.45</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">5</td><td style="text-align: right;">-2.22346</td><td style="text-align: right;">-2.25</td></tr></tbody></table></div>
+</div>
+</div>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>numBootSample <span class="op">=</span> <span class="fl">100</span>;</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>bootindex <span class="op">=</span> <span class="fu">reshape</span>(</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sample</span>(<span class="fl">1</span><span class="op">:</span>NumSimMarkets, NumSimMarkets <span class="op">*</span> numBootSample),</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    (NumSimMarkets, numBootSample)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>bootresult_transition <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">2</span>, numBootSample);</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>bootresult_CCP1 <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">8</span>, numBootSample);</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>bootresult_CCP2 <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">8</span>, numBootSample);</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>bootresult_payoff <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">5</span>, numBootSample);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="18">
+<details>
+<summary>Bootstrap</summary>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">Estimation_PS_bootstrap</span>(</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    FakeData,</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>    beta</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    EstimatedCCP1 <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">1</span>);</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>    EstimatedCCP2 <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">1</span>);</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> s <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span></span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>        SubData <span class="op">=</span> FakeData[FakeData[<span class="op">:</span>, <span class="fl">3</span>] <span class="op">.==</span> s, <span class="op">:</span>];</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>        EstimatedCCP1[s] <span class="op">=</span> <span class="fu">mean</span>(SubData[<span class="op">:</span>, <span class="fl">7</span>] <span class="op">.==</span> <span class="fl">0</span>);</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>        EstimatedCCP2[s] <span class="op">=</span> <span class="fu">mean</span>(SubData[<span class="op">:</span>, <span class="fl">8</span>] <span class="op">.==</span> <span class="fl">0</span>);</span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>    EstimatedTransition <span class="op">=</span> <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">2</span>);</span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>    SubData <span class="op">=</span> <span class="fu">hcat</span>(FakeData, [[<span class="fl">0</span>]; FakeData[<span class="fl">1</span><span class="op">:</span>(<span class="kw">end</span> <span class="op">-</span> <span class="fl">1</span>), <span class="fl">4</span>]]);</span>
+<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a>    SubData <span class="op">=</span> SubData[SubData[<span class="op">:</span>, <span class="fl">2</span>] <span class="op">.!=</span> <span class="fl">1</span>, <span class="op">:</span>];</span>
+<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> z <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span></span>
+<span id="cb26-21"><a href="#cb26-21" aria-hidden="true" tabindex="-1"></a>        SubDataZ <span class="op">=</span> SubData[SubData[<span class="op">:</span>, <span class="fl">4</span>] <span class="op">.==</span> z, <span class="op">:</span>];</span>
+<span id="cb26-22"><a href="#cb26-22" aria-hidden="true" tabindex="-1"></a>        EstimatedTransition[z, z] <span class="op">=</span> <span class="fu">mean</span>(SubDataZ[<span class="op">:</span>, <span class="fl">9</span>] <span class="op">.==</span> z);</span>
+<span id="cb26-23"><a href="#cb26-23" aria-hidden="true" tabindex="-1"></a>        EstimatedTransition[z, <span class="fl">3</span> <span class="op">-</span> z] <span class="op">=</span> <span class="fl">1</span> <span class="op">-</span> EstimatedTransition[z, z];</span>
+<span id="cb26-24"><a href="#cb26-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb26-25"><a href="#cb26-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-26"><a href="#cb26-26" aria-hidden="true" tabindex="-1"></a>    SubData <span class="op">=</span> <span class="fu">hcat</span>(FakeData, [[<span class="fl">0</span>]; FakeData[<span class="fl">1</span><span class="op">:</span>(<span class="kw">end</span> <span class="op">-</span> <span class="fl">1</span>), <span class="fl">4</span>]]);</span>
+<span id="cb26-27"><a href="#cb26-27" aria-hidden="true" tabindex="-1"></a>    SubData <span class="op">=</span> SubData[SubData[<span class="op">:</span>, <span class="fl">2</span>] <span class="op">.!=</span> <span class="fl">1</span>, <span class="op">:</span>];</span>
+<span id="cb26-28"><a href="#cb26-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-29"><a href="#cb26-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> z <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span></span>
+<span id="cb26-30"><a href="#cb26-30" aria-hidden="true" tabindex="-1"></a>        SubDataZ <span class="op">=</span> SubData[SubData[<span class="op">:</span>, <span class="fl">4</span>] <span class="op">.==</span> z, <span class="op">:</span>];</span>
+<span id="cb26-31"><a href="#cb26-31" aria-hidden="true" tabindex="-1"></a>        EstimatedTransition[z, z] <span class="op">=</span> <span class="fu">mean</span>(SubDataZ[<span class="op">:</span>, <span class="fl">9</span>] <span class="op">.==</span> z);</span>
+<span id="cb26-32"><a href="#cb26-32" aria-hidden="true" tabindex="-1"></a>        EstimatedTransition[z, <span class="fl">3</span> <span class="op">-</span> z] <span class="op">=</span> <span class="fl">1</span> <span class="op">-</span> EstimatedTransition[z, z];</span>
+<span id="cb26-33"><a href="#cb26-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb26-34"><a href="#cb26-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-35"><a href="#cb26-35" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> <span class="fu">optimize</span>(</span>
+<span id="cb26-36"><a href="#cb26-36" aria-hidden="true" tabindex="-1"></a>        x <span class="op">-&gt;</span> <span class="fu">obj_fun</span>(</span>
+<span id="cb26-37"><a href="#cb26-37" aria-hidden="true" tabindex="-1"></a>            [x[<span class="fl">1</span>]; x[<span class="fl">3</span><span class="op">:</span><span class="fl">4</span>]; [<span class="fl">0</span>]; x[<span class="fl">5</span>]; x[<span class="fl">2</span>]; x[<span class="fl">3</span><span class="op">:</span><span class="fl">4</span>]; [<span class="fl">0</span>]; x[<span class="fl">5</span>]], </span>
+<span id="cb26-38"><a href="#cb26-38" aria-hidden="true" tabindex="-1"></a>            EstimatedCCP1, EstimatedCCP2, EstimatedTransition, beta</span>
+<span id="cb26-39"><a href="#cb26-39" aria-hidden="true" tabindex="-1"></a>            ),</span>
+<span id="cb26-40"><a href="#cb26-40" aria-hidden="true" tabindex="-1"></a>        [<span class="fl">0.3</span>, <span class="fl">0.2</span>, <span class="op">-</span><span class="fl">0.27</span>, <span class="fl">0.45</span>, <span class="op">-</span><span class="fl">2.1</span>],</span>
+<span id="cb26-41"><a href="#cb26-41" aria-hidden="true" tabindex="-1"></a>        Optim.<span class="fu">Options</span>(show_trace <span class="op">=</span> <span class="cn">false</span>)</span>
+<span id="cb26-42"><a href="#cb26-42" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb26-43"><a href="#cb26-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-44"><a href="#cb26-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
+<span id="cb26-45"><a href="#cb26-45" aria-hidden="true" tabindex="-1"></a>        <span class="fu">hcat</span>(EstimatedCCP1, EstimatedCCP2),</span>
+<span id="cb26-46"><a href="#cb26-46" aria-hidden="true" tabindex="-1"></a>        EstimatedTransition,</span>
+<span id="cb26-47"><a href="#cb26-47" aria-hidden="true" tabindex="-1"></a>        result.minimizer,</span>
+<span id="cb26-48"><a href="#cb26-48" aria-hidden="true" tabindex="-1"></a>        result.minimum</span>
+<span id="cb26-49"><a href="#cb26-49" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb26-50"><a href="#cb26-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-51"><a href="#cb26-51" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="19">
+<pre><code>Estimation_PS_bootstrap (generic function with 1 method)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> <span class="cf">for</span> b <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>numBootSample</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    bootsample <span class="op">=</span> <span class="fu">zeros</span>(NumSimPeriods <span class="op">*</span> NumSimMarkets, <span class="fl">8</span>);</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> m <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>NumSimMarkets</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>        temp <span class="op">=</span> FakeData[FakeData[<span class="op">:</span>, <span class="fl">1</span>] <span class="op">.==</span> bootindex[m, b], <span class="op">:</span>];</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>        bootsample[(<span class="fl">1</span> <span class="op">+</span> NumSimPeriods <span class="op">*</span> (m <span class="op">-</span> <span class="fl">1</span>))<span class="op">:</span>(NumSimPeriods <span class="op">*</span> m), <span class="op">:</span>] <span class="op">=</span> temp;</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>    output <span class="op">=</span> <span class="fu">Estimation_PS_bootstrap</span>(bootsample, beta);</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>    bootresult_CCP1[<span class="op">:</span>, b] <span class="op">=</span> output[<span class="fl">1</span>][<span class="op">:</span>, <span class="fl">1</span>];</span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>    bootresult_CCP2[<span class="op">:</span>, b] <span class="op">=</span> output[<span class="fl">1</span>][<span class="op">:</span>, <span class="fl">2</span>];</span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>    bootresult_transition[<span class="op">:</span>, b] <span class="op">=</span> <span class="fu">diag</span>(output[<span class="fl">2</span>]);</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>    bootresult_payoff[<span class="op">:</span>, b] <span class="op">=</span> output[<span class="fl">3</span>];</span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  4.082187 seconds (17.09 M allocations: 13.241 GiB, 14.02% gc time, 7.26% compilation time)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"CCP for firm 1"</span>)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DataFrame</span>(</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"True values"</span> <span class="op">=&gt;</span> CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>],</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Estimated"</span> <span class="op">=&gt;</span> <span class="fu">vec</span>(EstimatedCCP1),</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"SE"</span> <span class="op">=&gt;</span> <span class="fu">vec</span>(<span class="fu">std</span>(bootresult_CCP1, dims<span class="op">=</span><span class="fl">2</span>))</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>CCP for firm 1</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="21">
+
+<div><div style="float: left;"><span>8×3 DataFrame</span></div><div style="clear: both;"></div></div><div class="data-frame" style="overflow-x: scroll;"><table class="data-frame table table-sm table-striped" style="margin-bottom: 6px;"><thead><tr class="header"><th class="rowNumber" style="font-weight: bold; text-align: right;">Row</th><th style="text-align: left;">True values</th><th style="text-align: left;">Estimated</th><th style="text-align: left;">SE</th></tr><tr class="subheader headerLastRow"><th class="rowNumber" style="font-weight: bold; text-align: right;"></th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th></tr></thead><tbody><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">1</td><td style="text-align: right;">0.683563</td><td style="text-align: right;">0.671276</td><td style="text-align: right;">0.00916724</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">2</td><td style="text-align: right;">0.712662</td><td style="text-align: right;">0.70041</td><td style="text-align: right;">0.00767212</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">3</td><td style="text-align: right;">0.815651</td><td style="text-align: right;">0.827299</td><td style="text-align: right;">0.00620892</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">4</td><td style="text-align: right;">0.793819</td><td style="text-align: right;">0.797659</td><td style="text-align: right;">0.00577186</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">5</td><td style="text-align: right;">0.708067</td><td style="text-align: right;">0.705617</td><td style="text-align: right;">0.00959225</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">6</td><td style="text-align: right;">0.735965</td><td style="text-align: right;">0.725334</td><td style="text-align: right;">0.00899726</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">7</td><td style="text-align: right;">0.797547</td><td style="text-align: right;">0.789778</td><td style="text-align: right;">0.00860466</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">8</td><td style="text-align: right;">0.774137</td><td style="text-align: right;">0.787342</td><td style="text-align: right;">0.00711149</td></tr></tbody></table></div>
+</div>
+</div>
+<div class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"CCP for firm 2"</span>)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DataFrame</span>(</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"True values"</span> <span class="op">=&gt;</span> CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>],</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Estimated"</span> <span class="op">=&gt;</span> <span class="fu">vec</span>(EstimatedCCP2),</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"SE"</span> <span class="op">=&gt;</span> <span class="fu">vec</span>(<span class="fu">std</span>(bootresult_CCP2, dims<span class="op">=</span><span class="fl">2</span>))</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>CCP for firm 2</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="22">
+
+<div><div style="float: left;"><span>8×3 DataFrame</span></div><div style="clear: both;"></div></div><div class="data-frame" style="overflow-x: scroll;"><table class="data-frame table table-sm table-striped" style="margin-bottom: 6px;"><thead><tr class="header"><th class="rowNumber" style="font-weight: bold; text-align: right;">Row</th><th style="text-align: left;">True values</th><th style="text-align: left;">Estimated</th><th style="text-align: left;">SE</th></tr><tr class="subheader headerLastRow"><th class="rowNumber" style="font-weight: bold; text-align: right;"></th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th></tr></thead><tbody><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">1</td><td style="text-align: right;">0.714725</td><td style="text-align: right;">0.718293</td><td style="text-align: right;">0.00968694</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">2</td><td style="text-align: right;">0.792409</td><td style="text-align: right;">0.800378</td><td style="text-align: right;">0.00731078</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">3</td><td style="text-align: right;">0.741697</td><td style="text-align: right;">0.746308</td><td style="text-align: right;">0.00572638</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">4</td><td style="text-align: right;">0.768731</td><td style="text-align: right;">0.767725</td><td style="text-align: right;">0.00640628</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">5</td><td style="text-align: right;">0.737685</td><td style="text-align: right;">0.714142</td><td style="text-align: right;">0.0104247</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">6</td><td style="text-align: right;">0.772706</td><td style="text-align: right;">0.761288</td><td style="text-align: right;">0.00832577</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">7</td><td style="text-align: right;">0.76353</td><td style="text-align: right;">0.76567</td><td style="text-align: right;">0.00721454</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">8</td><td style="text-align: right;">0.7473</td><td style="text-align: right;">0.736392</td><td style="text-align: right;">0.00769535</td></tr></tbody></table></div>
+</div>
+</div>
+<div class="cell" data-execution_count="22">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Transition Probability (GG and BB)"</span>)</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DataFrame</span>(</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"True values"</span> <span class="op">=&gt;</span> <span class="fu">diag</span>(TransitionMat),</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Estimated"</span> <span class="op">=&gt;</span> <span class="fu">diag</span>(EstimatedTransition),</span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"SE"</span> <span class="op">=&gt;</span> <span class="fu">vec</span>(<span class="fu">std</span>(bootresult_transition, dims<span class="op">=</span><span class="fl">2</span>))</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Transition Probability (GG and BB)</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="23">
+
+<div><div style="float: left;"><span>2×3 DataFrame</span></div><div style="clear: both;"></div></div><div class="data-frame" style="overflow-x: scroll;"><table class="data-frame table table-sm table-striped" style="margin-bottom: 6px;"><thead><tr class="header"><th class="rowNumber" style="font-weight: bold; text-align: right;">Row</th><th style="text-align: left;">True values</th><th style="text-align: left;">Estimated</th><th style="text-align: left;">SE</th></tr><tr class="subheader headerLastRow"><th class="rowNumber" style="font-weight: bold; text-align: right;"></th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th></tr></thead><tbody><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">1</td><td style="text-align: right;">0.7</td><td style="text-align: right;">0.700071</td><td style="text-align: right;">0.00337154</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">2</td><td style="text-align: right;">0.6</td><td style="text-align: right;">0.599711</td><td style="text-align: right;">0.0045105</td></tr></tbody></table></div>
+</div>
+</div>
+<div class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DataFrame</span>(</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"True values"</span> <span class="op">=&gt;</span> initial,</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Normalized true values"</span> <span class="op">=&gt;</span> Normalized_TrueParam[[<span class="fl">1</span>, <span class="fl">6</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">5</span>]],</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Estimated"</span> <span class="op">=&gt;</span> result_pick,</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"SE"</span> <span class="op">=&gt;</span> <span class="fu">vec</span>(<span class="fu">std</span>(bootresult_payoff, dims<span class="op">=</span><span class="fl">2</span>))</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>    )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="24">
+
+<div><div style="float: left;"><span>5×4 DataFrame</span></div><div style="clear: both;"></div></div><div class="data-frame" style="overflow-x: scroll;"><table class="data-frame table table-sm table-striped" style="margin-bottom: 6px;"><thead><tr class="header"><th class="rowNumber" style="font-weight: bold; text-align: right;">Row</th><th style="text-align: left;">True values</th><th style="text-align: left;">Normalized true values</th><th style="text-align: left;">Estimated</th><th style="text-align: left;">SE</th></tr><tr class="subheader headerLastRow"><th class="rowNumber" style="font-weight: bold; text-align: right;"></th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th></tr></thead><tbody><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">1</td><td style="text-align: right;">0.3</td><td style="text-align: right;">0.3375</td><td style="text-align: right;">0.348787</td><td style="text-align: right;">0.0544961</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">2</td><td style="text-align: right;">0.2</td><td style="text-align: right;">0.2375</td><td style="text-align: right;">0.223868</td><td style="text-align: right;">0.0557081</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">3</td><td style="text-align: right;">-0.27</td><td style="text-align: right;">-0.27</td><td style="text-align: right;">-0.291698</td><td style="text-align: right;">0.0385321</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">4</td><td style="text-align: right;">0.45</td><td style="text-align: right;">0.45</td><td style="text-align: right;">0.492655</td><td style="text-align: right;">0.089435</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">5</td><td style="text-align: right;">-2.1</td><td style="text-align: right;">-2.25</td><td style="text-align: right;">-2.22346</td><td style="text-align: right;">0.0196745</td></tr></tbody></table></div>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./dynamic_game_data.html" class="pagination-link">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">疑似データの生成</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+</body></html>

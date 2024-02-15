@@ -688,6 +688,10 @@ end
 
 ```{julia}
 
-@save "tmp/dynamic_game/data_workspace.jld2" FakeData CCP1UpdatedMat CCP2UpdatedMat
+jldsave(
+    "tmp/dynamic_game/data_workspace.jld2" ;
+    FakeData, CCP1UpdatedMat, CCP2UpdatedMat, 
+    ExanteV1, ExanteV2, ExanteV1Updated, ExanteV2Updated
+)
 
 ```

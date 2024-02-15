@@ -678,3 +678,7 @@ DataFrame(
     )
 
 ```
+
+```{julia}
+@save "tmp/dynamic_game/estimates_1.jld2" EstimatedCCP1 EstimatedCCP2 EstimatedTransition;
+```
