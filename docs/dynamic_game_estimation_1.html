@@ -917,7 +917,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>    bootresult_payoff[<span class="op">:</span>, b] <span class="op">=</span> output[<span class="fl">3</span>];</span>
 <span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>  4.082187 seconds (17.09 M allocations: 13.241 GiB, 14.02% gc time, 7.26% compilation time)</code></pre>
+<pre><code>  4.176209 seconds (17.09 M allocations: 13.241 GiB, 14.93% gc time, 7.18% compilation time)</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="20">
@@ -976,6 +976,9 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <div><div style="float: left;"><span>5×4 DataFrame</span></div><div style="clear: both;"></div></div><div class="data-frame" style="overflow-x: scroll;"><table class="data-frame table table-sm table-striped" style="margin-bottom: 6px;"><thead><tr class="header"><th class="rowNumber" style="font-weight: bold; text-align: right;">Row</th><th style="text-align: left;">True values</th><th style="text-align: left;">Normalized true values</th><th style="text-align: left;">Estimated</th><th style="text-align: left;">SE</th></tr><tr class="subheader headerLastRow"><th class="rowNumber" style="font-weight: bold; text-align: right;"></th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th><th title="Float64" style="text-align: left;">Float64</th></tr></thead><tbody><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">1</td><td style="text-align: right;">0.3</td><td style="text-align: right;">0.3375</td><td style="text-align: right;">0.348787</td><td style="text-align: right;">0.0544961</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">2</td><td style="text-align: right;">0.2</td><td style="text-align: right;">0.2375</td><td style="text-align: right;">0.223868</td><td style="text-align: right;">0.0557081</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">3</td><td style="text-align: right;">-0.27</td><td style="text-align: right;">-0.27</td><td style="text-align: right;">-0.291698</td><td style="text-align: right;">0.0385321</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">4</td><td style="text-align: right;">0.45</td><td style="text-align: right;">0.45</td><td style="text-align: right;">0.492655</td><td style="text-align: right;">0.089435</td></tr><tr><td class="rowNumber" style="font-weight: bold; text-align: right;">5</td><td style="text-align: right;">-2.1</td><td style="text-align: right;">-2.25</td><td style="text-align: right;">-2.22346</td><td style="text-align: right;">0.0196745</td></tr></tbody></table></div>
 </div>
+</div>
+<div class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@save</span> <span class="st">"tmp/dynamic_game/estimates_1.jld2"</span> EstimatedCCP1 EstimatedCCP2 EstimatedTransition;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 
 

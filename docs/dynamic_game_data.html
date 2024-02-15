@@ -760,7 +760,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>  0.060610 seconds (205.19 k allocations: 13.970 MiB, 98.72% compilation time)</code></pre>
+<pre><code>  0.074838 seconds (205.19 k allocations: 13.970 MiB, 98.40% compilation time)</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="22">
@@ -930,7 +930,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb32-120"><a href="#cb32-120" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="27">
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@save</span> <span class="st">"tmp/dynamic_game/data_workspace.jld2"</span> FakeData CCP1UpdatedMat CCP2UpdatedMat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">jldsave</span>(</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"tmp/dynamic_game/data_workspace.jld2"</span> ;</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>    FakeData, CCP1UpdatedMat, CCP2UpdatedMat, </span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>    ExanteV1, ExanteV2, ExanteV1Updated, ExanteV2Updated</span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 
 
