@@ -11,22 +11,23 @@ jupyter: julia-1.9
 using CSV
 using DataFrames
 using StringEncodings
-using FixedEffectModels
-using RegressionTables
 using Plots
 using LinearAlgebra
 using Statistics
-using Optim
 using StatsBase
 using Printf
 using ForwardDiff
 using Random
-using GLM
 using NLopt
 using StatsPlots
-using Distributions
 using CategoricalArrays
 # using BenchmarkTools
+```
+
+```{julia}
+for file in readdir("functions/entry_exit/")
+    include("functions/entry_exit/" * file)
+end
 ```
 
 ```{julia}
@@ -55,43 +56,42 @@ data_cleaned[!, :LogIncome] = log.(data_cleaned[:, :TaxableIncome]);
 ## 4
 
 ```{julia}
+listVars = [
+    "Kyukyu", "Kinou", "Sien", "Hyoka", "DepNeurology",
+    "DepNeurosurgery", "NumBeds", "ZeroBedDum", "DaigakuDum"
+]
 table_mean = combine(
     groupby(data_cleaned, :MRIOwnDum),
-    [:Kyukyu, :Kinou, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :NumBeds, :ZeroBedDum, :DaigakuDum] .=> x -> mean(skipmissing(x))
+    [Symbol(variable) for variable in listVars] .=> 
+    x -> mean(skipmissing(x))
 );
 table_sd = combine(
     groupby(data_cleaned, :MRIOwnDum),
-    [:Kyukyu, :Kinou, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :NumBeds, :ZeroBedDum, :DaigakuDum] .=> x -> std(skipmissing(x))
+    [Symbol(variable) for variable in listVars] .=> 
+    x -> std(skipmissing(x))
 );
 
-table_sumstat = DataFrame(table_mean[2, :]);
-append!(table_sumstat, DataFrame(table_sd[2, :]));
-append!(table_sumstat, DataFrame(table_mean[1, :]));
-append!(table_sumstat, DataFrame(table_sd[1, :]));
+DataFrame(
+    variable = listVars,
+    meanOwnMRI = Matrix(table_mean)[2, 2:end],
+    sdOwnMRI = Matrix(table_sd)[2, 2:end],
+    meanNotOwnMRI_ = Matrix(table_mean)[1, 2:end],
+    sdNotOwnMRI = Matrix(table_sd)[1, 2:end]
+)
 
-DataFrame([[names(table_sumstat)]; collect.(eachrow(table_sumstat))], [:column; Symbol.(axes(table_sumstat, 1))])
 ```
 
 ```{julia}
-function per_MRI_cal(df)
-
-    output = combine(df, nrow => :Total, :MRIOwnDum => sum => :MRIHos)
-    output[!, :PerMRI] = round.(output.MRIHos ./ output.Total .* 100.0, digits = 2)
-    
-    return Matrix(output)
-    
-end
-
 vcat(
-    per_MRI_cal(data_cleaned),
-    per_MRI_cal(dropmissing(data_cleaned, :Kyukyu)[dropmissing(data_cleaned, :Kyukyu).Kyukyu .== 1, :]),
-    per_MRI_cal(dropmissing(data_cleaned, :Sien)[dropmissing(data_cleaned, :Sien).Sien .== 1, :]),
-    per_MRI_cal(dropmissing(data_cleaned, :Hyoka)[dropmissing(data_cleaned, :Hyoka).Hyoka .== 1, :]),
-    per_MRI_cal(dropmissing(data_cleaned, :DepNeurology)[dropmissing(data_cleaned, :DepNeurology).DepNeurology .== 1, :]),
-    per_MRI_cal(dropmissing(data_cleaned, :DepNeurosurgery)[dropmissing(data_cleaned, :DepNeurosurgery).DepNeurosurgery .== 1, :]),
-    per_MRI_cal(dropmissing(data_cleaned, :LogNumBeds)[dropmissing(data_cleaned, :LogNumBeds).LogNumBeds .>= log(1.2), :]),
-    per_MRI_cal(dropmissing(data_cleaned, :DaigakuDum)[dropmissing(data_cleaned, :DaigakuDum).DaigakuDum .== 1, :]),
-    per_MRI_cal(dropmissing(data_cleaned, :ZeroBedDum)[dropmissing(data_cleaned, :ZeroBedDum).ZeroBedDum .== 1, :]),
+    calculateShareOwnMRI(data_cleaned),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :Kyukyu)[dropmissing(data_cleaned, :Kyukyu).Kyukyu .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :Sien)[dropmissing(data_cleaned, :Sien).Sien .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :Hyoka)[dropmissing(data_cleaned, :Hyoka).Hyoka .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :DepNeurology)[dropmissing(data_cleaned, :DepNeurology).DepNeurology .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :DepNeurosurgery)[dropmissing(data_cleaned, :DepNeurosurgery).DepNeurosurgery .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :LogNumBeds)[dropmissing(data_cleaned, :LogNumBeds).LogNumBeds .>= log(1.2), :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :DaigakuDum)[dropmissing(data_cleaned, :DaigakuDum).DaigakuDum .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_cleaned, :ZeroBedDum)[dropmissing(data_cleaned, :ZeroBedDum).ZeroBedDum .== 1, :]),
 )
 ```
 
@@ -108,19 +108,18 @@ first(data_processed_pre, 5)
 ```
 
 ```{julia}
-function berry_process_data(df)
+function processDataForBerryEst(df)
     
     data_processed = df[:, :];
-#     sort!(data_processed, :CityCode);
-    data_processed[!, :TieEntryOrder] = rand(Uniform(), nrow(df));
+    data_processed[!, :TieEntryOrder] = rand(nrow(df));
     
     transform!(
         groupby(data_processed, :CityCode),
-        nrow => :NumPotenHos,
-        :MRIOwnDum => sum => :NumEntryObs
+        nrow => :numPotenHos,
+        :MRIOwnDum => sum => :numEntryObs
     );
     sort!(data_processed, [:CityCode, :LogNumBeds, :TieEntryOrder], rev = [false, true, true]);
-    transform!(groupby(data_processed, :CityCode), :NumPotenHos => (x -> 1:length(x)) => :EntryOrderId);
+    transform!(groupby(data_processed, :CityCode), :numPotenHos => (x -> 1:length(x)) => :EntryOrderId);
     
     return data_processed
         
@@ -129,50 +128,58 @@ end
 
 ```{julia}
 Random.seed!(123)
-data_processed = berry_process_data(data_processed_pre);
+data_processed = processDataForBerryEst(data_processed_pre);
 first(data_processed, 5)
 ```
 
 ```{julia}
-NumPotenHos_max = 4;
-data_processed = data_processed[data_processed.EntryOrderId .<= NumPotenHos_max, :];
+numPotenHos_max = 4;
+data_processed = data_processed[data_processed.EntryOrderId .<= numPotenHos_max, :];
 transform!(
     groupby(data_processed, :CityCode),
-    :MRIOwnDum => sum => :NumEntryObs,
-    nrow => :NumPotenHos
+    :MRIOwnDum => sum => :numEntryObs,
+    nrow => :numPotenHos
 );
-data_processed[!, :Const] = ones(nrow(data_processed));
-data_processed[!, :LogEntryOrderId] = log.(data_processed[:, :EntryOrderId]);
+data_processed[!, :Const] .= 1;
 vcat(
-    per_MRI_cal(data_processed),
-    per_MRI_cal(dropmissing(data_processed, :Kyukyu)[dropmissing(data_processed, :Kyukyu).Kyukyu .== 1, :]),
-    per_MRI_cal(dropmissing(data_processed, :Sien)[dropmissing(data_processed, :Sien).Sien .== 1, :]),
-    per_MRI_cal(dropmissing(data_processed, :Hyoka)[dropmissing(data_processed, :Hyoka).Hyoka .== 1, :]),
-    per_MRI_cal(dropmissing(data_processed, :DepNeurology)[dropmissing(data_processed, :DepNeurology).DepNeurology .== 1, :]),
-    per_MRI_cal(dropmissing(data_processed, :DepNeurosurgery)[dropmissing(data_processed, :DepNeurosurgery).DepNeurosurgery .== 1, :]),
-    per_MRI_cal(dropmissing(data_processed, :LogNumBeds)[dropmissing(data_processed, :LogNumBeds).LogNumBeds .>= log(1.2), :]),
-    per_MRI_cal(dropmissing(data_processed, :DaigakuDum)[dropmissing(data_processed, :DaigakuDum).DaigakuDum .== 1, :]),
-    per_MRI_cal(dropmissing(data_processed, :ZeroBedDum)[dropmissing(data_processed, :ZeroBedDum).ZeroBedDum .== 1, :]),
+    calculateShareOwnMRI(data_processed),
+    calculateShareOwnMRI(dropmissing(data_processed, :Kyukyu)[dropmissing(data_processed, :Kyukyu).Kyukyu .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :Sien)[dropmissing(data_processed, :Sien).Sien .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :Hyoka)[dropmissing(data_processed, :Hyoka).Hyoka .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :DepNeurology)[dropmissing(data_processed, :DepNeurology).DepNeurology .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :DepNeurosurgery)[dropmissing(data_processed, :DepNeurosurgery).DepNeurosurgery .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :LogNumBeds)[dropmissing(data_processed, :LogNumBeds).LogNumBeds .>= log(1.2), :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :DaigakuDum)[dropmissing(data_processed, :DaigakuDum).DaigakuDum .== 1, :]),
+    calculateShareOwnMRI(dropmissing(data_processed, :ZeroBedDum)[dropmissing(data_processed, :ZeroBedDum).ZeroBedDum .== 1, :]),
 )
 
 ```
 
 ```{julia}
-ns = 100;
+numSim = 100;
 
 uniqueCityCode = unique(data_processed.CityCode);
-M = length(uniqueCityCode);
-NumHos = nrow(data_processed);
-NumEntryObs = combine(groupby(data_processed, :CityCode), :NumEntryObs => mean).NumEntryObs_mean;
-NumPotenHos_vec = combine(first, groupby(data_processed, :CityCode)).NumPotenHos;
+numCity = length(uniqueCityCode);
+numHos = nrow(data_processed);
+numEntryObs = combine(
+    groupby(data_processed, :CityCode),
+    :MRIOwnDum => sum => :numEntryObs
+).numEntryObs;
+NumPotenHos_vec = combine(
+    groupby(data_processed, :CityCode),
+    nrow => :numPotenHos
+).numPotenHos;
+
+cityIndex = data_processed.CityCode .== uniqueCityCode';
 ```
 
 ```{julia}
-u_m0 = (uniqueCityCode .== permutedims(data_processed.CityCode))' * rand(Normal(), (M, ns));
-u_mIm = rand(Normal(), (NumHos, ns));
+u_m0 = cityIndex * randn(numCity, numSim);
+u_mIm = randn(numHos, numSim);
 ```
 
 ```{julia}
+
 param_init = [
     -0.612340533,   -5.525423772,   -0.505275676,   
     -0.32531026,    -1.04162392,    -0.991878025,   
@@ -180,96 +187,182 @@ param_init = [
     0.040555764,    0.426448612,    -1.399627382,   
     0.990975782,    0.958075433
 ];
-function berry_obj(
+
+```
+
+```{julia}
+
+@time profitExcludeCompetition = calculateProfitExcludeCompetition(
+    param_init,
+    data_processed,
+    u_m0,
+    u_mIm
+
+)
+
+@time each_entry_mat = calculateEquilibriumNumEntry(
+    data_processed,
+    param_init[13],
+    profitExcludeCompetition
+);
+```
+
+```{julia}
+
+@time entryMat = simulateEntryByOrder(
+    param_init[13],
+    cityIndex,
+    profitExcludeCompetition,
+    each_entry_mat
+);
+mean(entryMat, dims = 2)
+
+```
+
+```{julia}
+
+function calculateBerryObjectiveAtHospitalLevel(
         param,
         df::DataFrame,
         u_m0::Matrix{Float64},
         u_mIm::Matrix{Float64},
-        NumEntryObs::Vector{Float64},
-        uniqueCityCode::Vector{Int64},
-        NumPotenHos_vec::Vector{Int64}
+        cityIndex::BitMatrix,
+        simulateEntry
     )
-    
-    alpha = param[1:8];
-    beta = param[9:12];
-    delta = param[13];
-    rho = param[14];
-    
-    var_profit = Matrix(df[:, [:Const, :Menseki, :LogPop, :LogIncome]]) * beta .+ 
-        rho .* u_m0;
-    fixed_cost = Matrix(df[:, [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :LogNumBeds, :ZeroBedDum, :DaigakuDum]]) * alpha .-
-        (sqrt.(1.0 - rho^2) .* u_mIm);
 
-    prof_excl_comp = var_profit - fixed_cost;
-    
-    function each_entry_func(i)
-        entry_decision_df = hcat(df[:, [:CityCode]], DataFrame((prof_excl_comp .- delta .* log(i) .>= 0), :auto));
-        return (Matrix(combine(groupby(entry_decision_df, :CityCode), Not(:CityCode) .=> sum)[:, Not(:CityCode)]) .>= i) .* i
-    end
-    
-    each_entry_mat = max.(
-        each_entry_func(1),
-        each_entry_func(2),
-        each_entry_func(3),
-        each_entry_func(4)
+    profitExcludeCompetition = calculateProfitExcludeCompetition(
+        param,
+        df,
+        u_m0,
+        u_mIm
+
+    )
+
+    each_entry_mat = calculateEquilibriumNumEntry(
+        df,
+        param[13],
+        profitExcludeCompetition
     );
-    n_exp = mean(each_entry_mat, dims = 2);
-    
-    diff = mean((NumEntryObs .- n_exp).^2);
 
-    return diff
-    
+    entryMat = simulateEntry(
+        param[13],
+        cityIndex,
+        profitExcludeCompetition,
+        each_entry_mat
+    )
+
+    return mean((df.MRIOwnDum .- mean(entryMat, dims = 2)).^2);
+
 end
-@time berry_obj(param_init, data_processed, u_m0, u_mIm, NumEntryObs, uniqueCityCode, NumPotenHos_vec)
+```
+
+```{julia}
+@time calculateBerryObjectiveAtHospitalLevel(param_init, data_processed, u_m0, u_mIm, cityIndex, simulateEntryByOrder);
+```
+
+```{julia}
+#| echo: false
+#| eval: false
+
+# obj_for_Optim = TwiceDifferentiable(
+#     x -> calculateBerryObjective(x, data_processed, u_m0, u_mIm, numEntryObs),
+#     param_init;
+#     autodiff = :forward
+# );
+# @time optim_res = Optim.optimize(
+#     obj_for_Optim,
+#     # x -> calculateBerryObjective(x, data_processed, u_m0, u_mIm, numEntryObs),
+#     [repeat([-Inf], 13); -1.0],
+#     [repeat([Inf], 13); 1.0],
+#     param_init,
+#     # NelderMead(),
+#     Optim.Options(show_trace = false)
+# );
+
+# [param_init optim_res.minimizer]
 
 ```
 
 ```{julia}
-# @benchmark berry_obj(param_init, data_processed, u_m0, u_mIm, NumEntryObs)
-function test_nlopt(x::Vector, grad::Vector)
+# @benchmark calculateBerryObjective(param_init, data_processed, u_m0, u_mIm, numEntryObs)
+function obj_for_Optim(x::Vector, grad::Vector)
     if length(grad) != 0
-        ForwardDiff.gradient!(grad, x -> berry_obj(x, data_processed, u_m0, u_mIm, NumEntryObs, uniqueCityCode, NumPotenHos_vec), x)
+        ForwardDiff.gradient!(
+            grad, 
+            x -> calculateBerryObjectiveAtHospitalLevel(x, data_processed, u_m0, u_mIm, cityIndex, simulateEntryByOrder), 
+            x
+            )
     end
-    return berry_obj(x, data_processed, u_m0, u_mIm, NumEntryObs, uniqueCityCode, NumPotenHos_vec)
+    return calculateBerryObjectiveAtHospitalLevel(x, data_processed, u_m0, u_mIm, cityIndex, simulateEntryByOrder)
 end
-
-param_init = [
-    -0.612340533,   -5.525423772,   -0.505275676,   
-    -0.32531026,    -1.04162392,    -0.991878025,   
-    -3.87040966,    -1.272714254,   2.684741676,    
-    0.040555764,    0.426448612,    -1.399627382,   
-    0.990975782,    0.958075433
-];
-# param_init = vcat(repeat([0.0], 13), 0.95)
 
 opt = NLopt.Opt(:LN_NELDERMEAD, length(param_init))
 opt.lower_bounds = [repeat([-Inf], 13); -1.0]
 opt.upper_bounds = [repeat([Inf], 13); 1.0]
-# opt.xtol_rel = 1e-8
 
-opt.min_objective = test_nlopt
+opt.min_objective = obj_for_Optim;
 @time (minf, minx, ret) = NLopt.optimize(opt, param_init)
 
 [param_init minx]
 ```
 
+```{julia}
+
+numBootstrap = 100;
+bootEstMat = zeros(length(minx), numBootstrap)
+
+@time for bootIndex in 1:numBootstrap
+
+    bootCitySample = sample(uniqueCityCode, numCity, replace = true);
+    df_boot = reduce(
+        vcat,
+        [
+            transform(
+                data_processed[data_processed.CityCode .== bootCitySample[city] , :],
+                :CityCode => (x -> city) => :CityCode
+            )
+            for city in 1:numCity
+        ]
+    );
+
+    numHos_boot = nrow(df_boot);
+
+    uniqueCityCode_boot = unique(df_boot.CityCode);
+    cityIndex_boot = df_boot.CityCode .== uniqueCityCode_boot';
+
+    u_m0_boot = cityIndex_boot * randn(numCity, numSim);
+    u_mIm_boot = randn(numHos_boot, numSim);
+
+    function obj_for_Optim(x::Vector, grad::Vector)
+        if length(grad) != 0
+            ForwardDiff.gradient!(
+                grad, 
+                x -> calculateBerryObjectiveAtHospitalLevel(x, df_boot, u_m0_boot, u_mIm_boot, cityIndex_boot, simulateEntryByOrder), 
+                x
+                )
+        end
+        return calculateBerryObjectiveAtHospitalLevel(x, df_boot, u_m0_boot, u_mIm_boot, cityIndex_boot, simulateEntryByOrder)
+    end
+
+    opt_boot = NLopt.Opt(:LN_NELDERMEAD, length(param_init))
+    opt_boot.lower_bounds = [repeat([-Inf], 13); -1.0]
+    opt_boot.upper_bounds = [repeat([Inf], 13); 1.0]
+
+    opt_boot.min_objective = obj_for_Optim;
+    (minf_boot, minx_boot, ret_boot) = NLopt.optimize(opt_boot, param_init)
+    bootEstMat[:, bootIndex] .= minx_boot;
+
+end
+
+```
+
+```{julia}
+[minx std(bootEstMat, dims = 2)]
+```
 
 ## 6.2
 
 ```{julia}
-function entry_sim(df, delta, prof_excl_comp)
-    N = nrow(df);
-    n = ones(ns);
-    EntryCond = zeros(Int64, N, ns);
-    
-    for i = 1:N
-        net_prof = prof_excl_comp[i, :] .- delta * log.(n);
-        EntryCond[i, net_prof .> 0.0] .= 1;
-        n[net_prof .> 0.0] .+= 1;
-    end
-
-    return vec(mean(EntryCond, dims = 2))
-end
 
 berry_est = minx;
 alpha_est = berry_est[1:8];
@@ -277,28 +370,37 @@ beta_est = berry_est[9:12];
 delta_est = berry_est[13];
 rho_est = berry_est[14];
 
-var_profit = Matrix(data_processed[:, [:Const, :Menseki, :LogPop, :LogIncome]]) * beta_est .+ 
-    rho_est .* u_m0;
-fixed_cost = Matrix(data_processed[:, [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :LogNumBeds, :ZeroBedDum, :DaigakuDum]]) * alpha_est .-
-    (sqrt.(1.0 - rho_est^2) .* u_mIm);
-
-prof_excl_comp = var_profit - fixed_cost;
-
-EntryProb = map(
-    i -> entry_sim(data_processed[data_processed.CityCode .== i, :], delta_est, prof_excl_comp[data_processed.CityCode .== i, :]), 
-    uniqueCityCode
+profitExcludeCompetition = calculateProfitExcludeCompetition(
+    berry_est,
+    data_processed,
+    u_m0,
+    u_mIm
 );
+
+each_entry_mat = calculateEquilibriumNumEntry(
+    data_processed,
+    delta_est,
+    profitExcludeCompetition
+);
+
+entryProb = mean(simulateEntryByOrder(
+    delta_est,
+    cityIndex,
+    profitExcludeCompetition,
+    each_entry_mat
+), dims = 2)[:, 1];
 ```
 
 ```{julia}
-EntryPred = reduce(vcat, EntryProb) .> 0.5;
+entryPred = entryProb .> 0.5;
+
 data_predicted = copy(data_processed);
-data_predicted[!, :EntryProb] = reduce(vcat, EntryProb);
-data_predicted[!, :EntryPred] = EntryPred;
+data_predicted[!, :entryProb] = entryProb;
+data_predicted[!, :entryPred] = entryPred;
 data_predicted_agg = combine(
     groupby(data_predicted, :CityCode),
     :MRIOwnDum => sum => :Actual,
-    :EntryPred => sum => :Predict
+    :entryPred => sum => :Predict
 );
 
 data_predicted_agg = stack(data_predicted_agg, [:Actual, :Predict]);
@@ -316,31 +418,45 @@ groupedbar(
 ```
 
 ```{julia}
-#| echo: false
-#| eval: false
- 
-# var_list = [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :DaigakuDum, :ZeroBedDum]
-# actual_pred_MRI = map(x -> combine(data_predicted[data_predicted[:, x] .== 1, [:MRIOwnDum, :EntryPred]], All() .=> sum), var_list);
-# actual_pred_MRI = vcat(
-#     combine(data_predicted[:, [:MRIOwnDum, :EntryPred]], All() .=> sum),
-#     reduce(vcat, actual_pred_MRI),
-#     combine(data_predicted[data_predicted[:, :LogNumBeds] .>= log(1.2), [:MRIOwnDum, :EntryPred]], All() .=> sum)
-# )
-# groupedbar(
-#     Matrix(actual_pred_MRI), 
-#     bar_position = :dodge, 
-#     bar_width = 0.7,
-#     xticks = (1:9, 1:9),
+data_predicted[!, :Top25pct_NumBeds] = data_processed.LogNumBeds .>= log(1.2);
+listVarsShort = [
+    "Kyukyu", "Sien", "Hyoka", "DepNeurology",
+    "DepNeurosurgery", "Top25pct_NumBeds", "ZeroBedDum", "DaigakuDum"
+]
 
-# )
-# var_list = [:DepNeurology, :DepNeurosurgery, :ZeroBedDum, :DaigakuDum]
-# DataFrame(
-#     category = ["Total", "DepNeurology", "DepNeurosurgery", "ZeroBedDum", "DaigakuDum"],
-#     mse = [
-#         msd(data_predicted[:, :MRIOwnDum] * 1.0, data_predicted[:, :EntryProb]);
-#         map(i -> msd(data_predicted[data_predicted[:, i] .== 1, :MRIOwnDum] * 1.0, data_predicted[data_predicted[:, i] .== 1, :EntryProb]), var_list)
-#             ]
-# )
+tableActPred = vcat([
+        sum.(
+            eachcol(data_predicted[
+                data_predicted[:, variable] .== 1, 
+                [:MRIOwnDum, :entryPred]
+                ])
+        )'
+        for variable in listVarsShort
+    ]...);
+
+dfActPred = vcat(
+    DataFrame(
+        Actual = sum(data_predicted.MRIOwnDum),
+        Predict = sum(data_predicted.entryPred)
+    ),
+    DataFrame(
+        Actual = tableActPred[:, 1],
+        Predict = tableActPred[:, 2]
+    )
+);
+
+dfActPredStack = stack(dfActPred, [:Actual, :Predict]);
+dfActPredStack[:, :category] = repeat(["All"; listVarsShort], 2);
+groupedbar(
+    dfActPredStack.category, 
+    dfActPredStack.value,
+    group = dfActPredStack.variable,
+    xlabel = "value", 
+    ylabel = "count",
+    bar_width = 0.67,
+    lw = 0,
+    xrotation = 30
+)
 ```
 
 ## 7
@@ -348,19 +464,19 @@ groupedbar(
 ```{julia}
 data_cf = copy(data_processed);
 sort!(data_cf, [:CityCode, :DepNeurology, :DepNeurosurgery, :LogNumBeds, :TieEntryOrder], rev = [false, true, true, true, true]);
-transform!(groupby(data_cf, :CityCode), :NumPotenHos => (x -> 1:length(x)) => :EntryOrderId);
+transform!(groupby(data_cf, :CityCode), :numPotenHos => (x -> 1:length(x)) => :EntryOrderId);
 var_profit_cf = Matrix(data_cf[:, [:Const, :Menseki, :LogPop, :LogIncome]]) * beta_est .+ 
     rho_est .* u_m0;
-fixed_cost_cf = Matrix(data_cf[:, [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :LogNumBeds, :ZeroBedDum, :DaigakuDum]]) * alpha_est .-
+fixedCost_cf = Matrix(data_cf[:, [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :LogNumBeds, :ZeroBedDum, :DaigakuDum]]) * alpha_est .-
     (sqrt.(1.0 - rho_est^2) .* u_mIm);
 
-prof_excl_comp_cf = var_profit_cf - fixed_cost_cf;
-prof_excl_comp_cf[(data_cf.DepNeurology .== 1) .| (data_cf.DepNeurosurgery .== 1), :] .= 1e+5;
+profitExcludeCompetition_cf = var_profit_cf - fixedCost_cf;
+profitExcludeCompetition_cf[(data_cf.DepNeurology .== 1) .| (data_cf.DepNeurosurgery .== 1), :] .= 1e+5;
 ```
 
 ```{julia}
 EntryProb_cf = map(
-    i -> entry_sim(data_cf[data_cf.CityCode .== i, :], delta_est, prof_excl_comp_cf[data_cf.CityCode .== i, :]), 
+    i -> simulateEntry(data_cf[data_cf.CityCode .== i, :], delta_est, profitExcludeCompetition_cf[data_cf.CityCode .== i, :]), 
     uniqueCityCode
 );
 ```
@@ -368,12 +484,12 @@ EntryProb_cf = map(
 ```{julia}
 EntryPred_cf = reduce(vcat, EntryProb_cf) .> 0.5;
 data_predicted_cf = copy(data_processed);
-data_predicted_cf[!, :EntryProb] = reduce(vcat, EntryProb_cf);
-data_predicted_cf[!, :EntryPred] = EntryPred_cf;
+data_predicted_cf[!, :entryProb] = reduce(vcat, EntryProb_cf);
+data_predicted_cf[!, :entryPred] = EntryPred_cf;
 data_predicted_cf_agg = combine(
     groupby(data_predicted_cf, :CityCode),
     :MRIOwnDum => sum => :Actual,
-    :EntryPred => sum => :CounterFactual
+    :entryPred => sum => :CounterFactual
 );
 
 data_predicted_cf_agg = stack(data_predicted_cf_agg, [:Actual, :CounterFactual]);
@@ -419,7 +535,7 @@ data_predicted_agg_wo_neuro = combine(
         :CityCode
         ),
     :MRIOwnDum => sum => :Actual,
-    :EntryPred => sum => :Predict
+    :entryPred => sum => :Predict
 );
 
 data_predicted_agg_wo_neuro = stack(data_predicted_agg_wo_neuro, [:Actual, :Predict]);
@@ -432,7 +548,7 @@ data_predicted_cf_agg_wo_neuro = combine(
         :CityCode
         ),
     :MRIOwnDum => sum => :Actual,
-    :EntryPred => sum => :CounterFactual
+    :entryPred => sum => :CounterFactual
 );
 
 data_predicted_cf_agg_wo_neuro = stack(data_predicted_cf_agg_wo_neuro, [:Actual, :CounterFactual]);
@@ -480,15 +596,15 @@ vcat(
 #| eval: false
 
 # EntryPred_cf = reduce(vcat, EntryProb_cf) .> 0.5;
-# data_cf[!, :EntryProb] = reduce(vcat, EntryProb_cf);
-# data_cf[!, :EntryPred] = EntryPred_cf;
+# data_cf[!, :entryProb] = reduce(vcat, EntryProb_cf);
+# data_cf[!, :entryPred] = EntryPred_cf;
 # var_list = [:Kyukyu, :Sien, :Hyoka, :DepNeurology, :DepNeurosurgery, :DaigakuDum, :ZeroBedDum]
-# actual_pred_MRI_cf = map(x -> combine(data_cf[data_cf[:, x] .== 1, [:MRIOwnDum, :EntryPred]], All() .=> sum), var_list);
+# actual_pred_MRI_cf = map(x -> combine(data_cf[data_cf[:, x] .== 1, [:MRIOwnDum, :entryPred]], All() .=> sum), var_list);
 # actual_pred_MRI_cf = vcat(
-#     combine(data_cf[:, [:MRIOwnDum, :EntryPred]], All() .=> sum),
+#     combine(data_cf[:, [:MRIOwnDum, :entryPred]], All() .=> sum),
 #     reduce(vcat, actual_pred_MRI_cf),
-#     combine(data_cf[data_cf[:, :LogNumBeds] .>= log(1.2), [:MRIOwnDum, :EntryPred]], All() .=> sum),
-#     combine(data_cf[(data_cf[:, :DepNeurology] .== 0) .& (data_cf[:, :DepNeurosurgery] .== 0), [:MRIOwnDum, :EntryPred]], All() .=> sum)
+#     combine(data_cf[data_cf[:, :LogNumBeds] .>= log(1.2), [:MRIOwnDum, :entryPred]], All() .=> sum),
+#     combine(data_cf[(data_cf[:, :DepNeurology] .== 0) .& (data_cf[:, :DepNeurosurgery] .== 0), [:MRIOwnDum, :entryPred]], All() .=> sum)
 # )
 
 # [actual_pred_MRI.EntryPred_sum actual_pred_MRI_cf.EntryPred_sum]
