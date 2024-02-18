@@ -16,11 +16,23 @@ using ForwardDiff
 using Optim
 using BenchmarkTools
 using Plots
+using Serialization
 ```
 
 ```{julia}
+for file in readdir("functions/single_agent_dynamic/")
+    include("functions/single_agent_dynamic/" * file)
+end
+```
+```{julia}
 data_gen = CSV.read("tmp/single_agent_dynamic_basic/data_gen.csv", DataFrame);
 first(data_gen, 3)
+```
+
+```{julia}
+kappa_est = deserialize("tmp/single_agent_dynamic_basic/kappa_est.ser");
+lambda_est = deserialize("tmp/single_agent_dynamic_basic/lambda_est.ser");
+theta_est = deserialize("tmp/single_agent_dynamic_basic/theta_est.ser");
 ```
 
 ```{julia}
@@ -30,229 +42,43 @@ num_price_states = length(price_states);
 num_mileage_states = length(mileage_states);
 num_states = num_price_states * num_mileage_states;
 
-states_matrix = Matrix(reshape(reinterpret(Int, collect(Iterators.product(price_states, mileage_states))), (2, :))');
+states_matrix = Matrix(
+  reshape(
+    reinterpret(
+      Int, 
+      collect(Iterators.product(price_states, mileage_states))
+      ), 
+    (2, :))'
+    );
 ```
 
 ```{julia}
-describe(data_gen[:, [:price, :mileage, :action]], :all)[:, [:variable, :mean, :std, :min, :max]]
+describe(
+  data_gen[:, [:price, :mileage, :action]], 
+  :all
+  )[:, [:variable, :mean, :std, :min, :max]]
 ```
 
 ## 4
 
 ```{julia}
 theta_true = [0.004, 0.003];
-
 beta = 0.99;
-
 Euler_const = Float64(MathConstants.eulergamma);
-
 num_choice = 2;
 ```
 
 ```{julia}
 
-num_cond_obs_mileage = combine(
-    groupby(
-        transform(
-            data_gen |>
-                filter(:period => (x -> x != minimum(data_gen.period))),
-            [:mileage_lag, :mileage, :action_lag] =>
-            ByRow(
-                (mileage_lag, mileage, action_lag) ->
-                (
-                    ((action_lag == 0) & (5 <= mileage_lag <= 95) & (mileage_lag == mileage)) |
-                    ((action_lag == 1) & (mileage == 0))
-                    ) ? "cond_obs_mileage1" :
-                (
-                    ((action_lag == 0) & (5 <= mileage_lag <= 90) & (mileage_lag == mileage - 5)) |
-                    ((action_lag == 1) & (mileage == 5))
-                    ) ? "cond_obs_mileage2" :
-                (
-                    ((action_lag == 0) & (5 <= mileage_lag <= 90) & (mileage_lag == mileage - 10)) |
-                    ((action_lag == 1) & (mileage == 10))
-                    ) ? "cond_obs_mileage3" :
-                (
-                    ((action_lag == 0) & (mileage_lag == 95) & (mileage == 100))
-                    ) ? "cond_obs_mileage4" :
-                "other"
-            ) =>
-            :cond_obs_mileage
-            ),
-        [:cond_obs_mileage]
-        ),
-    nrow => :num_cond_obs
-) |> filter(:cond_obs_mileage => (x -> (x != "other")));
+mileage_trans_mat_hat = generateMileageTransition(
+  kappa_est, 
+  num_mileage_states
+  );
 
-num_cond_obs_mileage = Dict(
-    k => v[1, "num_cond_obs"] 
-    for ((k, ), v) in pairs(groupby(num_cond_obs_mileage, :cond_obs_mileage))
-    );
-
-```
-
-```{julia}
-
-kappa_est = zeros(2);
-
-kappa_est[1] = num_cond_obs_mileage["cond_obs_mileage2"] * (
-    num_cond_obs_mileage["cond_obs_mileage2"] +
-    num_cond_obs_mileage["cond_obs_mileage3"] +
-    num_cond_obs_mileage["cond_obs_mileage4"]
-) / (
-    (num_cond_obs_mileage["cond_obs_mileage2"] + num_cond_obs_mileage["cond_obs_mileage3"]) * (
-    num_cond_obs_mileage["cond_obs_mileage1"] +
-    num_cond_obs_mileage["cond_obs_mileage2"] +
-    num_cond_obs_mileage["cond_obs_mileage3"] +
-    num_cond_obs_mileage["cond_obs_mileage4"]
-    )
+price_trans_mat_hat = generatePriceTransition(
+  lambda_est, 
+  num_price_states
 );
-
-kappa_est[2] = num_cond_obs_mileage["cond_obs_mileage3"] * (
-    num_cond_obs_mileage["cond_obs_mileage2"] +
-    num_cond_obs_mileage["cond_obs_mileage3"] +
-    num_cond_obs_mileage["cond_obs_mileage4"]
-) / (
-    (num_cond_obs_mileage["cond_obs_mileage2"] + num_cond_obs_mileage["cond_obs_mileage3"]) * (
-    num_cond_obs_mileage["cond_obs_mileage1"] +
-    num_cond_obs_mileage["cond_obs_mileage2"] +
-    num_cond_obs_mileage["cond_obs_mileage3"] +
-    num_cond_obs_mileage["cond_obs_mileage4"]
-    )
-);
-
-kappa_est
-```
-
-```{julia}
-Infomat_mileage_est = zeros((2, 2));
-
-Infomat_mileage_est[1, 1] = (
-    (num_cond_obs_mileage["cond_obs_mileage1"] / (1 - kappa_est[1] - kappa_est[2])^2) +
-    (num_cond_obs_mileage["cond_obs_mileage2"] / kappa_est[1]^2) +
-    (num_cond_obs_mileage["cond_obs_mileage4"] / (kappa_est[1] + kappa_est[2])^2)
-);
-
-Infomat_mileage_est[1, 2] = (
-    (num_cond_obs_mileage["cond_obs_mileage1"] / (1 - kappa_est[1] - kappa_est[2])^2) +
-    (num_cond_obs_mileage["cond_obs_mileage4"] / (kappa_est[1] + kappa_est[2])^2)
-);
-
-Infomat_mileage_est[2, 1] = Infomat_mileage_est[1, 2];
-
-Infomat_mileage_est[2, 2] = (
-    (num_cond_obs_mileage["cond_obs_mileage1"] / (1 - kappa_est[1] - kappa_est[2])^2) +
-    (num_cond_obs_mileage["cond_obs_mileage3"] / kappa_est[2]^2) +
-    (num_cond_obs_mileage["cond_obs_mileage4"] / (kappa_est[1] + kappa_est[2])^2)
-);
-
-kappa_se = sqrt.(diag(inv(Infomat_mileage_est)));
-
-```
-
-```{julia}
-DataFrame(kappa_est = kappa_est, kappa_se = kappa_se)
-```
-
-```{julia}
-
-num_cond_obs_price = combine(
-    groupby(
-        data_gen |>
-            filter(:period => (x -> x != (minimum(data_gen.period)))),
-        [:price_lag, :price]
-    ),
-    nrow => :num_cond_obs
-)
-
-num_cond_obs_price = [
-    (
-        num_cond_obs_price |> 
-            filter([:price_lag, :price] => ((price_lag, price) -> ((price_lag == p_lag) & (price == p))))
-    )[1, :num_cond_obs]
-    for p_lag in price_states, p in price_states
-]
-
-lambda_est_mat = num_cond_obs_price ./ sum(num_cond_obs_price, dims = 2)
-
-```
-
-```{julia}
-
-# TODO
-lambda_se = zeros(num_price_states)
-
-```
-
-```{julia}
-lambda_est = lambda_est_mat'[lambda_est_mat' .!= diag(lambda_est_mat)]
-```
-
-
-```{julia}
-
-function gen_mileage_trans!(
-    kappa::Vector{Float64},
-    num_mileage_states::Int,
-    mileage_trans_mat::Array{Float64, 3}
-    )
-    kappa_1 = kappa[1];
-    kappa_2 = kappa[2];
-
-    mileage_trans_mat[:, :, :] .= 0;
-    for i in 1:num_mileage_states, j in 1:num_mileage_states
-        if (i == j)
-            mileage_trans_mat[i, j, 1] = 1 - kappa_1 - kappa_2;
-        elseif (i == j - 1)
-            mileage_trans_mat[i, j, 1] = kappa_1;
-        elseif (i == j - 2)
-            mileage_trans_mat[i, j, 1] = kappa_2;
-        end
-    end
-    mileage_trans_mat[num_mileage_states - 1, num_mileage_states, 1] = kappa_1 + kappa_2;
-    mileage_trans_mat[num_mileage_states, num_mileage_states, 1] = 1;
-
-    mileage_trans_mat[:, :, 2] = repeat(mileage_trans_mat[1, :, 1]', num_mileage_states);
-end
-
-```
-
-```{julia}
-
-function gen_price_trans!(
-    lambda::Vector{Float64},
-    num_price_states::Int,
-    price_trans_mat::Array{Float64, 2}
-    )
-
-    price_trans_mat[:, :] .= 0;
-
-    price_trans_mat[1, 2:end] = lambda[1:(num_price_states - 1)];
-    price_trans_mat[1, 1] = 1 - sum(price_trans_mat[1, :]);
-
-    for i in 2:(num_price_states - 1)
-        price_trans_mat[i, 1:(i - 1)] = lambda[
-            ((i - 1) * (num_price_states - 1) + 1):((i - 1) * (num_price_states - 1) + (i - 1))
-            ];
-        price_trans_mat[i, (i + 1):end] = lambda[
-            ((i - 1) * (num_price_states - 1) + i):(i * (num_price_states - 1))
-            ];
-        price_trans_mat[i, i] = 1 - sum(price_trans_mat[i, :]);
-    end
-
-    price_trans_mat[num_price_states, 1:(end - 1)] = lambda[((num_price_states - 1) * (num_price_states - 1) + 1):end];
-    price_trans_mat[num_price_states, num_price_states] = 1 - sum(price_trans_mat[num_price_states, :]);
-
-end
-
-```
-
-```{julia}
-
-mileage_trans_mat_hat = zeros((num_mileage_states, num_mileage_states, num_choice));
-gen_mileage_trans!(kappa_est, num_mileage_states, mileage_trans_mat_hat);
-
-price_trans_mat_hat = zeros(num_price_states, num_price_states);
-gen_price_trans!(lambda_est, num_price_states, price_trans_mat_hat);
 
 trans_mat_hat = Array{Float64}(undef, num_states, num_states, num_choice);
 for i in 1:num_choice
@@ -277,86 +103,33 @@ CCP_1st = convert(Matrix{Float64}, CCP_1st);
 ```
 
 ```{julia}
-
-function flow_utility(
-    theta,
-    states_matrix::Matrix{Int}
-    )
-
-    theta_c = theta[1];
-    theta_p = theta[2];
-
-    return hcat(
-        - theta_c .* states_matrix[:, 2],
-        - theta_p .* states_matrix[:, 1]
-    );
-end
-
-```
-
-```{julia}
-
-function policy_operator_mat_inv(
-  theta,
-  CCP::Matrix{Float64},
-  beta::Float64,
-  trans_mat::Array{Float64, 3},
-  states_matrix::Matrix{Int};
-  num_states::Int = num_states,
-  Euler_const::Float64 = Euler_const
+#| echo: false
+#| eval: false
+@time calculateCCPByMatrixInversion(
+  theta_true,
+  CCP_1st,
+  beta,
+  trans_mat_hat,
+  states_matrix
 )
-
-  U = flow_utility(theta, states_matrix);
-
-  psi = Euler_const .- log.(CCP);
-
-  V = (
-    diagm(ones(num_states)) - 
-    beta .* (CCP[:, 1] .* trans_mat[:, :, 1] + CCP[:, 2] .* trans_mat[:, :, 2])
-  ) \ sum(CCP .* (U + psi), dims = 2);
-
-  CV = U + beta .* hcat(trans_mat[:, :, 1] * V, trans_mat[:, :, 2] * V);
-
-  CCP = exp.(CV) ./ sum(exp.(CV), dims = 2)
-
-  return CCP
-
-end
-
-```
-
-```{julia}
-function likelihood_fun(
-  theta,
-  CCP::Matrix{Float64},
-  data_gen::DataFrame,
-  beta::Float64,
-  trans_mat::Array{Float64, 3},
-  states_matrix::Matrix{Int},
-  policy_operator
-  )
-
-  CCP = policy_operator(theta, CCP, beta, trans_mat, states_matrix);
-
-  return sum(log.([CCP[x.state, x.action + 1] for x in eachrow(data_gen)]))
-
-end
 ```
 
 
 ```{julia}
-
-objFunc_for_Optim_mat_inv = TwiceDifferentiable(
-    x -> - likelihood_fun(x, CCP_1st, data_gen, beta, trans_mat_hat, states_matrix, policy_operator_mat_inv),
-    theta_true;
-    autodiff = :forward
-    );
 
 @time mat_inv_opt_mat_inv = optimize(
-    objFunc_for_Optim_mat_inv,
+    x -> - calculateLikelihoodFromCCP(
+      x, 
+      CCP_1st, 
+      data_gen, 
+      beta, 
+      trans_mat_hat, 
+      states_matrix, 
+      calculateCCPByMatrixInversion
+      ),
     theta_true,
-    Optim.Options(show_trace = true)
-)
+    Optim.Options(show_trace = false)
+);
 
 ```
 
@@ -365,8 +138,16 @@ objFunc_for_Optim_mat_inv = TwiceDifferentiable(
 theta_mat_inv = mat_inv_opt_mat_inv.minimizer;
 
 hessian_mat_inv = ForwardDiff.hessian(
-    x -> - likelihood_fun(x, CCP_1st, data_gen, beta, trans_mat_hat, states_matrix, policy_operator_mat_inv),
-    mat_inv_opt_mat_inv.minimizer
+    x -> - calculateLikelihoodFromCCP(
+      x, 
+      CCP_1st, 
+      data_gen, 
+      beta, 
+      trans_mat_hat, 
+      states_matrix, 
+      calculateCCPByMatrixInversion
+      ),
+    theta_mat_inv
     );
 
 theta_se_mat_inv = sqrt.(diag(inv(hessian_mat_inv)));
@@ -380,45 +161,20 @@ DataFrame(theta_mat_inv = theta_mat_inv, theta_se_mat_inv = theta_se_mat_inv)
 ### 4.2.2
 
 ```{julia}
-  
-function policy_operator_finite_dep(
-  theta,
-  CCP::Matrix{Float64},
-  beta::Float64,
-  trans_mat::Array{Float64, 3},
-  states_matrix::Matrix{Int}
-  )
-
-  U = flow_utility(theta, states_matrix);
-
-  CV_dif = (
-    U[:, 2] - U[:, 1] +
-    beta .* (trans_mat[:, :, 2] * (- log.(CCP[:, 2])) -  trans_mat[:, :, 1] * (- log.(CCP[:, 2])))
-  );
-
-  prob_buy = exp.(CV_dif) ./ (1 .+ exp.(CV_dif));
-
-  CCP = hcat(1 .- prob_buy, prob_buy)
-
-  return CCP
-
-end
-
-```
-
-```{julia}
-
-objFunc_for_Optim_finite_dep = TwiceDifferentiable(
-    x -> - likelihood_fun(x, CCP_1st, data_gen, beta, trans_mat_hat, states_matrix, policy_operator_finite_dep),
-    theta_true;
-    autodiff = :forward
-    );
 
 @time finite_dep_opt = optimize(
-    objFunc_for_Optim_finite_dep,
+    x -> - calculateLikelihoodFromCCP(
+      x, 
+      CCP_1st, 
+      data_gen, 
+      beta, 
+      trans_mat_hat, 
+      states_matrix, 
+      calculateCCPByFiniteDependency
+      ),
     theta_true,
-    Optim.Options(show_trace = true)
-)
+    Optim.Options(show_trace = false)
+);
 
 ```
 
@@ -427,8 +183,16 @@ objFunc_for_Optim_finite_dep = TwiceDifferentiable(
 theta_finite_dep = finite_dep_opt.minimizer;
 
 hessian_finite_dep = ForwardDiff.hessian(
-    x -> - likelihood_fun(x, CCP_1st, data_gen, beta, trans_mat_hat, states_matrix, policy_operator_finite_dep),
-    finite_dep_opt.minimizer
+    x -> - calculateLikelihoodFromCCP(
+      x,
+      CCP_1st, 
+      data_gen, 
+      beta, 
+      trans_mat_hat, 
+      states_matrix, 
+      calculateCCPByFiniteDependency
+      ),
+    theta_finite_dep
     );
 
 theta_se_finite_dep = sqrt.(diag(inv(hessian_finite_dep)));
@@ -442,88 +206,31 @@ DataFrame(theta_finite_dep = theta_finite_dep, theta_se_finite_dep = theta_se_fi
 ### 5.2
 
 ```{julia}
-
-function contraction(
-    theta,
-    beta::Float64,
-    trans_mat::Array{Float64, 3},
-    states_matrix::Matrix{Int};
-    num_states::Int = num_states,
-    num_choice::Int = num_choice,
-    Euler_const::Float64 = Euler_const
-    )
-
-    U = flow_utility(theta, states_matrix);
-    V_old = zeros(num_states);
-
-    diff = 1000;
-    tol_level = 1e-10;
-
-    while (diff > tol_level)
-        V_new = log.(sum(
-          exp.(U + beta .* hcat(trans_mat[:, :, 1] * V_old, trans_mat[:, :, 2] * V_old)),
-          dims = 2)) .+ Euler_const;
-
-        diff = sum(abs.(V_new - V_old));
-
-        V_old = V_new[:];
-    end
-
-    return V_old
-
-end
-
-
-```
-
-```{julia}
-function policy_operator_nfxp(
-    theta,
-    beta::Float64,
-    trans_mat::Array{Float64, 3},
-    states_matrix::Matrix{Int};
-    num_states::Int = num_states
+#| echo: false
+#| eval: false
+ 
+@time calculateVByContraction(
+  theta_true, beta, trans_mat_hat, states_matrix
 )
-
-    U = flow_utility(theta, states_matrix);
-
-    V = contraction(theta, beta, trans_mat, states_matrix; num_states = num_states);
-    
-    CV = U + beta .* hcat(trans_mat[:, :, 1] * V, trans_mat[:, :, 2] * V);
-
-    CCP = exp.(CV) ./ sum(exp.(CV), dims = 2);
-
-    return CCP
-end
 ```
 
 ```{julia}
-function likelihood_fun_nfxp(
-    theta,
-    data_gen::DataFrame,
-    beta::Float64,
-    trans_mat::Array{Float64, 3},
-    states_matrix::Matrix{Int}
+#| echo: false
+#| eval: false
+ 
+@time calculateCCPByNFXP(
+  theta_true,
+  beta,
+  trans_mat_hat,
+  states_matrix
 )
-  CCP = policy_operator_nfxp(theta, beta, trans_mat, states_matrix);
-
-  return sum(log.([CCP[x.state, x.action + 1] for x in eachrow(data_gen)]))
-
-end
 ```
 
 ```{julia}
-
-objFunc_for_Optim_nfxp = TwiceDifferentiable(
-    x -> - likelihood_fun_nfxp(x, data_gen, beta, trans_mat_hat, states_matrix),
-    theta_true;
-    autodiff = :forward
-    );
-
 @time nfxp_opt = optimize(
-    objFunc_for_Optim_nfxp,
+    x -> - calculateLikelihoodNFXP(x, data_gen, beta, trans_mat_hat, states_matrix),
     theta_true,
-    Optim.Options(show_trace = true)
+    Optim.Options(show_trace = false)
 )
 
 ```
@@ -533,8 +240,8 @@ objFunc_for_Optim_nfxp = TwiceDifferentiable(
 theta_nfxp = nfxp_opt.minimizer;
 
 hessian_nfxp = ForwardDiff.hessian(
-    x -> - likelihood_fun_nfxp(x, data_gen, beta, trans_mat_hat, states_matrix),
-    nfxp_opt.minimizer
+    x -> - calculateLikelihoodNFXP(x, data_gen, beta, trans_mat_hat, states_matrix),
+    theta_nfxp
     );
 
 theta_se_nfxp = sqrt.(diag(inv(hessian_nfxp)));
@@ -564,7 +271,7 @@ CCP_dict = Dict();
 
 ```{julia}
 
-prob_buy_baseline = policy_operator_nfxp(theta_nfxp, beta, trans_mat_hat, states_matrix);
+prob_buy_baseline = calculateCCPByNFXP(theta_nfxp, beta, trans_mat_hat, states_matrix);
 CCP_dict["Baseline"] = prob_buy_baseline;
 
 ```
@@ -598,8 +305,10 @@ result_df_edlp = combine(
 
 ```{julia}
 
-G_fixed_price = zeros((num_mileage_states, num_mileage_states, num_choice));
-gen_mileage_trans!(kappa_est, num_mileage_states, G_fixed_price);
+G_fixed_price = generateMileageTransition(
+  kappa_est, 
+  num_mileage_states
+);
 ```
 
 ```{julia}
@@ -609,7 +318,7 @@ for fixed_price in price_states
     states_matrix[states_matrix[:, 1] .== fixed_price, :]
   )
 
-  CCP_dict["edlp_" * string(fixed_price)] = policy_operator_nfxp(
+  CCP_dict["edlp_" * string(fixed_price)] = calculateCCPByNFXP(
     theta_nfxp,
     beta,
     G_fixed_price,
@@ -646,6 +355,9 @@ bar(
     bar_width = 50, legend=false
 )
 hline!([prob_buy_edlp2000])
+
+xlabel!("Price (thousand JPY)")
+ylabel!("Purchase probability")
 ```
 
 
@@ -656,14 +368,14 @@ hline!([prob_buy_edlp2000])
 states_matrix_discount = states_matrix[:, :];
 states_matrix_discount[:, 1] .-= 100;
 
-CCP_dict["Permanent"] = policy_operator_nfxp(theta_nfxp, beta, trans_mat_hat, states_matrix_discount);
+CCP_dict["Permanent"] = calculateCCPByNFXP(theta_nfxp, beta, trans_mat_hat, states_matrix_discount);
 ```
 
 ```{julia}
 
-U_discount = flow_utility(theta_nfxp, states_matrix_discount);
+U_discount = calculateFlowUtil(theta_nfxp, states_matrix_discount);
 
-V = contraction(theta_nfxp, beta, trans_mat_hat, states_matrix);
+V = calculateVByContraction(theta_nfxp, beta, trans_mat_hat, states_matrix);
 
 CV_temporary = U_discount + beta .* hcat(trans_mat_hat[:, :, 1] * V, trans_mat_hat[:, :, 2] * V);
 
@@ -682,7 +394,7 @@ filter!(:price => (x -> x == 2200), plot_cf_df);
 plot(plot_cf_df.mileage, plot_cf_df.ProbBaseline, label = "Baseline")
 plot!(plot_cf_df.mileage, plot_cf_df.ProbPermanent, label = "Permanent")
 plot!(plot_cf_df.mileage, plot_cf_df.ProbTemporary, label = "Temporary")
-xlabel!("Mileage")
+xlabel!("Mileage (thousand km)")
 ylabel!("Purchase probability")
 
 ```

@@ -22,7 +22,6 @@ using NLopt
 using StatsPlots
 using CategoricalArrays
 using Serialization
-# using BenchmarkTools
 ```
 
 ```{julia}
@@ -437,7 +436,7 @@ end
 ```{julia}
 #| echo: false
 #| eval: false
-serialize("tmp/entry_exit_application/bootEstMat.ser", minx);
+serialize("tmp/entry_exit_application/bootEstMat.ser", bootEstMat);
 ```
 
 ```{julia}

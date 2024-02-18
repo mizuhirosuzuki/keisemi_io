@@ -18,6 +18,7 @@ using Plots
 using ShiftedArrays
 using ForwardDiff
 using Optim
+using Serialization
 ```
 
 ```{julia}
@@ -58,13 +59,9 @@ states_matrix = Matrix(
 
 kappa_true = [0.25, 0.05];
 
-mileage_trans_mat_true = zeros(
-    num_mileage_states, num_mileage_states, num_choice
-    );
-generateMileageTransition!(
+mileage_trans_mat_true = generateMileageTransition(
     kappa_true, 
-    num_mileage_states, 
-    mileage_trans_mat_true
+    num_mileage_states
     );
 
 mileage_trans_mat_true[1:4, 1:4, 1]
@@ -81,11 +78,9 @@ lambda_true = [
     0.05, 0.05, 0.1, 0.1, 0.2
 ];
 
-price_trans_mat_true = zeros(num_price_states, num_price_states);
-generatePriceTransition!(
+price_trans_mat_true = generatePriceTransition(
     lambda_true, 
-    num_price_states, 
-    price_trans_mat_true
+    num_price_states
     );
 
 ```
@@ -124,7 +119,7 @@ V_CS_true = U_true + beta .* EV_true;
 prob_buy_true_mat = reshape(
     exp.(V_CS_true[:, 2]) ./ sum(exp.(V_CS_true), dims = 2), 
     (num_price_states, num_mileage_states)
-    )
+    );
 ```
 
 ```{julia}
@@ -163,6 +158,8 @@ describe(
 
 ```{julia}
 histogram(data_gen.price, bar_width = 50, legend=false)
+xlabel!("Price (thousand JPY)")
+ylabel!("Frequency")
 ```
 
 ```{julia}
@@ -172,15 +169,8 @@ histogram(
     legend=false, 
     bins = [collect(mileage_states); [105]] .- 2.5
     )
-```
-
-```{julia}
-bar(
-    mileage_states,
-    combine(groupby(data_gen, :mileage), :action => mean).action_mean,
-    bar_width = 3, 
-    legend=false
-)
+xlabel!("Mileage (thousand km)")
+ylabel!("Frequency")
 ```
 
 ```{julia}
@@ -191,7 +181,20 @@ bar(
     bar_width = 50, 
     legend=false
 )
+xlabel!("Price (thousand JPY)")
+ylabel!("Purchase probability")
 
+```
+
+```{julia}
+bar(
+    mileage_states,
+    combine(groupby(data_gen, :mileage), :action => mean).action_mean,
+    bar_width = 3, 
+    legend=false
+)
+xlabel!("Mileage (thousand km)")
+ylabel!("Purchase probability")
 ```
 
 ```{julia}
@@ -399,35 +402,41 @@ num_cond_obs_price = [
     for p_lag in price_states, p in price_states
 ]
 
-lambda_est_mat = num_cond_obs_price ./ sum(num_cond_obs_price, dims = 2)
+lambda_est_mat = num_cond_obs_price ./ sum(num_cond_obs_price, dims = 2);
+lambda_est = lambda_est_mat'[lambda_est_mat' .!= diag(lambda_est_mat)];
 
 ```
 
 ```{julia}
 
-# TODO
-lambda_se = zeros(num_price_states)
+lambda_se = vcat([
+    sqrt.(diag(inv(
+            (
+            diagm(num_cond_obs_price[i, :])[Not(i), Not(i)] ./ 
+            lambda_est_mat[Not(i), Not(i)].^2
+        ) .+ (
+            num_cond_obs_price[i, i] /
+            lambda_est_mat[i, i]^2
+        )
+    ))) for i in 1:num_price_states
+]...)
 
 ```
 
 ```{julia}
-lambda_est = lambda_est_mat'[lambda_est_mat' .!= diag(lambda_est_mat)]
+DataFrame(
+    lambda_est = lambda_est,
+    lambda_se = lambda_se
+)
 ```
 
 ## 5
 
 ```{julia}
-
-objFunc_for_Optim_stat = TwiceDifferentiable(
-    x -> - calculateLogLikelihoodStatic(x, states_matrix, data_gen),
-    theta_true;
-    autodiff = :forward
-    );
-
 @time logit_stat_opt = optimize(
-    objFunc_for_Optim_stat,
+    x -> - calculateLogLikelihoodStatic(x, states_matrix, data_gen),
     theta_true,
-    Optim.Options(show_trace = true)
+    Optim.Options(show_trace = false)
 )
 ```
 
@@ -450,20 +459,14 @@ DataFrame(theta_est_stat = theta_est_stat, theta_se_stat = theta_se_stat)
 
 ```{julia}
 
-mileage_trans_mat_hat = zeros(
-    num_mileage_states, num_mileage_states, num_choice
-    );
-generateMileageTransition!(
+mileage_trans_mat_hat = generateMileageTransition(
     kappa_est, 
-    num_mileage_states, 
-    mileage_trans_mat_hat
+    num_mileage_states
     );
 
-price_trans_mat_hat = zeros(num_price_states, num_price_states);
-generatePriceTransition!(
+price_trans_mat_hat = generatePriceTransition(
     lambda_est, 
-    num_price_states, 
-    price_trans_mat_hat
+    num_price_states
     );
 
 trans_mat_hat = Array{Float64}(
@@ -477,16 +480,10 @@ end
 
 ```{julia}
 
-objFunc_for_Optim = TwiceDifferentiable(
-    x -> - logLH(x, beta, trans_mat_hat, states_matrix, data_gen),
-    theta_true;
-    autodiff = :forward
-    );
-
 @time NFXP_opt = optimize(
-    objFunc_for_Optim,
+    x -> - calculateLogLikelihoodDynamic(x, beta, trans_mat_hat, states_matrix, data_gen),
     theta_true,
-    Optim.Options(show_trace = true)
+    Optim.Options(show_trace = false)
 )
 ```
 
@@ -494,8 +491,8 @@ objFunc_for_Optim = TwiceDifferentiable(
 theta_est = NFXP_opt.minimizer;
 
 hessian = ForwardDiff.hessian(
-    x -> - logLH(x, beta, trans_mat_hat, states_matrix, data_gen),
-    NFXP_opt.minimizer
+    x -> - calculateLogLikelihoodDynamic(x, beta, trans_mat_hat, states_matrix, data_gen),
+    theta_est
     );
 
 theta_se = sqrt.(diag(inv(hessian)));
@@ -507,4 +504,9 @@ DataFrame(theta_est = theta_est, theta_se = theta_se)
 
 ```{julia}
 CSV.write("tmp/single_agent_dynamic_basic/data_gen.csv", data_gen);
+
+serialize("tmp/single_agent_dynamic_basic/kappa_est.ser", kappa_est);
+serialize("tmp/single_agent_dynamic_basic/lambda_est.ser", lambda_est);
+serialize("tmp/single_agent_dynamic_basic/theta_est.ser", theta_est);
+
 ```

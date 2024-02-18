@@ -1,10 +1,9 @@
-function generatePriceTransition!(
+function generatePriceTransition(
     lambda::Vector{Float64},
-    num_price_states::Int,
-    price_trans_mat::Array{Float64, 2}
+    num_price_states::Int
     )
 
-    price_trans_mat[:, :] .= 0;
+    price_trans_mat = zeros(num_price_states, num_price_states);
 
     price_trans_mat[1, 2:end] = lambda[1:(num_price_states - 1)];
     price_trans_mat[1, 1] = 1 - sum(price_trans_mat[1, :]);
@@ -21,5 +20,7 @@ function generatePriceTransition!(
 
     price_trans_mat[num_price_states, 1:(end - 1)] = lambda[((num_price_states - 1) * (num_price_states - 1) + 1):end];
     price_trans_mat[num_price_states, num_price_states] = 1 - sum(price_trans_mat[num_price_states, :]);
+
+    return price_trans_mat
 
 end
