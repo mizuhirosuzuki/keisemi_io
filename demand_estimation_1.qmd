@@ -15,17 +15,26 @@ using StringEncodings
 using FixedEffectModels
 using RegressionTables
 using Plots
-using Optim
 using Printf
+using Optim
 using GLM
 ```
 
+
 ```{julia}
-data = CSV.File(
+for file in ["addIVColumns.jl", "calculateSales.jl"]
+    include("functions/demand_estimation/" * file)
+end
+```
+
+## データの読み込み
+
+```{julia}
+dataCar = CSV.File(
     open(read, "data/demand_estimation/CleanData_20180222.csv", enc"shift-jis"),
     missingstring = ["NA", ""],
     ) |> DataFrame
-first(select(data, Not([:base_color, :option_color])), 5)
+first(select(dataCar, Not([:base_color, :option_color])), 5)
 ```
 
 ```{julia}
@@ -44,16 +53,16 @@ rename!(dataCPI, "類・品目" => "year", "総合" => "CPI")
 first(dataCPI, 5)
 ```
 
-## Data cleaning
+## データクリーニング
 
 ```{julia}
-data = data[!, [
+dataCar = dataCar[!, [
         :Maker, :Type, :Name, :Year, :Sales, 
         :Model, :price, :kata, :weight, :FuelEfficiency, 
         :HorsePower, :overall_length, :overall_width, :overall_height
         ]]
-rename!(data, "Year" => "year")
-data = leftjoin(data, dataHH, on = :year)
+rename!(dataCar, "Year" => "year")
+data = leftjoin(dataCar, dataHH, on = :year)
 data = leftjoin(data, dataCPI, on = :year)
 first(data, 5)
 ```
@@ -63,19 +72,21 @@ dropmissing!(data, :FuelEfficiency);
 ```
 
 ```{julia}
-cpi2016 = dataCPI[dataCPI.year .== 2016, "CPI"][1]
+cpi2016 = dataCPI[dataCPI.year .== 2016, "CPI"][1];
 data[!, :price] = data.price ./ (data.CPI / cpi2016) / 100;
 ```
 
 ```{julia}
-data[!, :size] = (data[:, :overall_length] / 1000) .* (data[:, :overall_width] / 1000) .* (data[:, :overall_height] / 1000);
+data[!, :size] = (
+    (data[:, :overall_length] / 1000) .* 
+    (data[:, :overall_width] / 1000) .* 
+    (data[:, :overall_height] / 1000)
+);
 data[!, :hppw] = data[:, :HorsePower] ./ data[:, :weight];
 
-unique_name = unique(data[!, [:Name]])
-unique_name[!, :NameID] = rownumber.(eachrow(unique_name))
-data = leftjoin(data, unique_name, on = :Name);
+data[:, :NameID] = groupby(data, :Name).groups;
 
-data = transform(
+transform!(
     groupby(data, :year),
     :Sales => sum => :inside_total
 );
@@ -84,66 +95,51 @@ data[!, :share] = data.Sales ./ data.HH;
 data[!, :share0] = data.outside_total ./ data.HH;
 ```
 
+## 操作変数の構築
+
 ```{julia}
 transform!(
     groupby(data, [:year, :Maker]),
-    [:hppw, :FuelEfficiency, :size] .=> sum .=> [:hppw_sum_own, :FuelEfficiency_sum_own, :size_sum_own],
-    [:hppw, :FuelEfficiency, :size] .=> (x -> sum(x.^2)) .=> [:hppw_sqr_sum_own, :FuelEfficiency_sqr_sum_own, :size_sqr_sum_own],
-    nrow => "group_n"
+    (
+        [:hppw, :FuelEfficiency, :size] .=> 
+        sum .=> 
+        [:hppw_sum_own, :FuelEfficiency_sum_own, :size_sum_own]
+    ),
+    (
+        [:hppw, :FuelEfficiency, :size] .=> 
+        (x -> sum(x.^2)) .=> 
+        [:hppw_sqr_sum_own, :FuelEfficiency_sqr_sum_own, :size_sqr_sum_own]
+    ),
+    nrow => :group_n
 );
 transform!(
     groupby(data, [:year]),
-    [:hppw, :FuelEfficiency, :size] .=> sum .=> [:hppw_sum_mkt, :FuelEfficiency_sum_mkt, :size_sum_mkt],
-    [:hppw, :FuelEfficiency, :size] .=> (x -> sum(x.^2)) .=> [:hppw_sqr_sum_mkt, :FuelEfficiency_sqr_sum_mkt, :size_sqr_sum_mkt],
-    nrow => "mkt_n"
+    (
+        [:hppw, :FuelEfficiency, :size] .=> 
+        sum .=> 
+        [:hppw_sum_mkt, :FuelEfficiency_sum_mkt, :size_sum_mkt]
+    ),
+    (
+        [:hppw, :FuelEfficiency, :size] .=> 
+        (x -> sum(x.^2)) .=> 
+        [:hppw_sqr_sum_mkt, :FuelEfficiency_sqr_sum_mkt, :size_sqr_sum_mkt]
+    ),
+    nrow => :mkt_n
 );
 
 ```
 
 ```{julia}
-data[!, :iv_BLP_own_hppw]             = data[:, :hppw_sum_own]           .- data[:, :hppw];
-data[!, :iv_BLP_own_FuelEfficiency]   = data[:, :FuelEfficiency_sum_own] .- data[:, :FuelEfficiency];
-data[!, :iv_BLP_own_size]             = data[:, :size_sum_own]           .- data[:, :size];
-data[!, :iv_BLP_other_hppw]           = data[:, :hppw_sum_mkt]           .- data[:, :hppw_sum_own];
-data[!, :iv_BLP_other_FuelEfficiency] = data[:, :FuelEfficiency_sum_mkt] .- data[:, :FuelEfficiency_sum_own];
-data[!, :iv_BLP_other_size]           = data[:, :size_sum_mkt]           .- data[:, :size_sum_own];
-
+for variable in ["hppw", "FuelEfficiency", "size"]
+    addIVColumns!(data, variable)
+end
 ```
 
 ```{julia}
-data[!, :iv_GH_own_hppw]             = (
-    (data[:, :group_n] .- 1) .* data[:, :hppw].^2 .+ 
-    (data[:, :hppw_sqr_sum_own] .- data[:, :hppw].^2) .- 
-    2 .* data[:, :hppw] .* (data[:, :hppw_sum_own] .- data[:, :hppw])
-);
-data[!, :iv_GH_own_FuelEfficiency]   = (
-    (data[:, :group_n] .- 1) .* data[:, :FuelEfficiency].^2 .+ 
-    (data[:, :FuelEfficiency_sqr_sum_own] .- data[:, :FuelEfficiency].^2) .- 
-    2 .* data[:, :FuelEfficiency] .* (data[:, :FuelEfficiency_sum_own] .- data[:, :FuelEfficiency])
-);
-data[!, :iv_GH_own_size]             = (
-    (data[:, :group_n] .- 1) .* data[:, :size].^2 .+ 
-    (data[:, :size_sqr_sum_own] .- data[:, :size].^2) .- 
-    2 .* data[:, :size] .* (data[:, :size_sum_own] .- data[:, :size])
-);
-data[!, :iv_GH_other_hppw]           = (
-    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :hppw].^2 .+ 
-    (data[:, :hppw_sqr_sum_mkt] .- data[:, :hppw_sqr_sum_own]) .- 
-    2 .* data[:, :hppw] .* (data[:, :hppw_sum_mkt] .- data[:, :hppw_sum_own])
-);
-data[!, :iv_GH_other_FuelEfficiency] = (
-    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :FuelEfficiency].^2 .+ 
-    (data[:, :FuelEfficiency_sqr_sum_mkt] .- data[:, :FuelEfficiency_sqr_sum_own]) .- 
-    2 .* data[:, :FuelEfficiency] .* (data[:, :FuelEfficiency_sum_mkt] .- data[:, :FuelEfficiency_sum_own])
-);
-data[!, :iv_GH_other_size]           = (
-    (data[:, :mkt_n] .- data[:, :group_n]) .* data[:, :size].^2 .+ 
-    (data[:, :size_sqr_sum_mkt] .- data[:, :size_sqr_sum_own]) .- 
-    2 .* data[:, :size] .* (data[:, :size_sum_mkt] .- data[:, :size_sum_own])
-);
-
+CSV.write("tmp/demand_estimation_1/data.csv", data);
 ```
 
+## 記述統計と基礎的な分析
 
 ```{julia}
 NIPPYOautoIDvec = [
@@ -154,29 +150,33 @@ NIPPYOautoIDvec = [
 ```
 
 ```{julia}
-data_NIPPYO = data[in(NIPPYOautoIDvec).(data[:, :NameID]), [:Sales, :price, :hppw, :FuelEfficiency, :size]];
-data_NIPPYO[!, :log_sales] = log.(data_NIPPYO[:, :Sales]);
-data_NIPPYO[!, :log_price] = log.(data_NIPPYO[:, :price]);
-data_NIPPYO[!, :log10_sales] = log10.(data_NIPPYO[:, :Sales]);
-data_NIPPYO[!, :log10_price] = log10.(data_NIPPYO[:, :price]);
+dataNIPPYO = data[in(NIPPYOautoIDvec).(data.NameID), [:Sales, :price, :hppw, :FuelEfficiency, :size]];
+dataNIPPYO[!, :log_sales] = log.(dataNIPPYO[:, :Sales]);
+dataNIPPYO[!, :log_price] = log.(dataNIPPYO[:, :price]);
+dataNIPPYO[!, :log10_sales] = log10.(dataNIPPYO[:, :Sales]);
+dataNIPPYO[!, :log10_price] = log10.(dataNIPPYO[:, :price]);
 ```
 
 
 ```{julia}
-ols_intro = reg(
-    data_NIPPYO, 
+reg(
+    dataNIPPYO, 
     @formula(log_sales ~ log_price + hppw + FuelEfficiency + size),
     Vcov.robust()
 )
 ```
 
 ```{julia}
-fit_line = predict(
-    lm(@formula(log10_sales ~ log10_price), data_NIPPYO)
+
+OLSFitLine = predict(
+    lm(@formula(log10_sales ~ log10_price), dataNIPPYO),
+    dataNIPPYO,
+    interval = :confidence,
+    level = 0.90
     );
 plot(
-    data_NIPPYO.price, 
-    data_NIPPYO.Sales, 
+    dataNIPPYO.price, 
+    dataNIPPYO.Sales, 
     seriestype = :scatter, 
     legend = false,
     xscale = :log10,
@@ -185,23 +185,36 @@ plot(
     ylabel = "Sales",
     xticks = ([1, 3, 10], [1, 3, 10]),
 )
+sortedPrediction = OLSFitLine[sortperm(dataNIPPYO[!, :price]), :]
+sortedPrice = sort(dataNIPPYO[!, :price])
 plot!(
-    data_NIPPYO.price, 
-    10 .^ fit_line,
+    sortedPrice,
+    10 .^ sortedPrediction.prediction,
+    ribbon = (
+        10 .^ sortedPrediction.prediction - 10 .^ sortedPrediction.lower,
+        10 .^ sortedPrediction.upper - 10 .^ sortedPrediction.prediction,
+        )
 )
+
 ```
 
 ```{julia}
 describe(data[:, [:Sales, :price, :FuelEfficiency, :size, :hppw]])
 ```
 
+## ロジットモデルの推定とその応用
+
 ```{julia}
 data[!, :logit_share] = log.(data[:, :share]) .- log.(data[:, :share0]);
 ```
 
 ```{julia}
-ols_res = reg(data, @formula(logit_share ~ price + hppw + FuelEfficiency + size), Vcov.robust());
-iv_BLP_res = reg(
+resultOLS = reg(
+    data, 
+    @formula(logit_share ~ price + hppw + FuelEfficiency + size), 
+    Vcov.robust()
+    );
+resultBLP = reg(
     data, 
     @formula(logit_share ~ (
         price ~ iv_BLP_own_hppw + iv_BLP_own_FuelEfficiency + iv_BLP_own_size + 
@@ -209,7 +222,7 @@ iv_BLP_res = reg(
     ) + hppw + FuelEfficiency + size),
     Vcov.robust()
 );
-iv_GH_res = reg(
+resultGH = reg(
     data, 
     @formula(logit_share ~ (
         price ~ iv_GH_own_hppw + iv_GH_own_FuelEfficiency + iv_GH_own_size + 
@@ -222,12 +235,12 @@ iv_GH_res = reg(
 ```
 
 ```{julia}
-regtable(ols_res, iv_BLP_res, iv_GH_res)
+regtable(resultOLS, resultBLP, resultGH)
 ```
 
 
 ```{julia}
-iv1st_BLP_res = reg(
+resultBLP1st = reg(
     data, 
     @formula(price ~ hppw + FuelEfficiency + size +
             iv_BLP_own_hppw + iv_BLP_own_FuelEfficiency + iv_BLP_own_size + 
@@ -235,7 +248,7 @@ iv1st_BLP_res = reg(
         ),
     Vcov.robust()
 );
-iv1st_GH_res = reg(
+resultGH1st = reg(
     data, 
     @formula(price ~ hppw + FuelEfficiency + size +
             iv_GH_own_hppw + iv_GH_own_FuelEfficiency + iv_GH_own_size + 
@@ -247,83 +260,78 @@ iv1st_GH_res = reg(
 ```
 
 ```{julia}
-regtable(iv1st_BLP_res, iv1st_GH_res)
+regtable(resultBLP1st, resultGH1st)
 ```
 
-```{julia}
-data[!, :own_elas_ols]   = ols_res.coef[ols_res.coefnames .== "price"] .* data[:, :price] .* (1 .- data[:, :share]);
-data[!, :own_elas_ivblp] = iv_BLP_res.coef[iv_BLP_res.coefnames .== "price"] .* data[:, :price] .* (1 .- data[:, :share]);
-data[!, :own_elas_ivgh]  = iv_GH_res.coef[iv_GH_res.coefnames .== "price"] .* data[:, :price] .* (1 .- data[:, :share]);
+## 自己価格弾力性の計算
 
+```{julia}
+data[!, :own_elas_ols] = (
+    resultOLS.coef[resultOLS.coefnames .== "price"] .* 
+    data[:, :price] .* 
+    (1 .- data[:, :share])
+);
+data[!, :own_elas_ivblp] = (
+    resultBLP.coef[resultBLP.coefnames .== "price"] .* 
+    data[:, :price] .* 
+    (1 .- data[:, :share])
+);
+data[!, :own_elas_ivgh] = (
+    resultGH.coef[resultGH.coefnames .== "price"] .* 
+    data[:, :price] .* 
+    (1 .- data[:, :share])
+);
 ```
 
 ```{julia}
 describe(data[:, r"^own_elas"])
 ```
 
+## 推定結果の応用
+
 ```{julia}
-dt_application = data[:, [:NameID, :year, :Sales, :price, :FuelEfficiency, :size, :hppw, :HH, :share]];
-dt_application[!, :xi_fit] = iv_GH_res.residuals;
+data[!, :xi_fit] = resultGH.residuals;
 ```
 
 ```{julia}
-NameID_target = 197
-dt_application[(dt_application.year .== 2016) .& (dt_application.NameID .== NameID_target), :]
+targetNameID = 197
+data[
+    (data.year .== 2016) .& 
+    (data.NameID .== targetNameID), 
+    :]
 ```
 
 ```{julia}
-function f_share(
-        price_cand,
-        year, 
-        NameID_target,
-        dt,
-        est_res
-    )
-    
-    dt = dt[dt.year .== year, :]
-    dt[!, :temp_price] = dt[:, :price]
-    dt[(dt[:, :NameID] .== NameID_target), :temp_price] .= price_cand
-    dt[!, :delta] = (
-        est_res.coef[est_res.coefnames .== "(Intercept)"] .+
-        est_res.coef[est_res.coefnames .== "hppw"] .* dt[:, :hppw] .+
-        est_res.coef[est_res.coefnames .== "FuelEfficiency"] .* dt[:, :FuelEfficiency] .+
-        est_res.coef[est_res.coefnames .== "size"] .* dt[:, :size] .+
-        est_res.coef[est_res.coefnames .== "price"] .* dt[:, :temp_price] .+
-        dt[:, :xi_fit]
-    )
-    dt[!, :denom] .= 1 .+ sum(exp.(dt[:, :delta]))
-    dt[!, :pred_sales] = exp.(dt[:, :delta]) ./ dt[:, :denom] .* dt[:, :HH]
-    dt = dt[dt.NameID .== NameID_target, :]
-    
-    return dt.pred_sales[1]
-    
-end
+priceVec = range(0.3, 5, step = 0.05);
+salesVec = calculateSales.(
+    priceVec, 2016, targetNameID, Ref(data), Ref(resultGH)
+    );
 ```
 
 ```{julia}
-pricevec = range(0.3, 5, step = 0.05);
-quantvec = f_share.(pricevec, 2016, NameID_target, Ref(dt_application), Ref(iv_GH_res));
-
-```
-
-```{julia}
-plot(quantvec, pricevec, xticks = [50000, 100000, 150000], legend = false)
+plot(salesVec, priceVec, xticks = [50000, 100000, 150000], legend = false)
 xlabel!("Sales")
 ylabel!("Price (million JPY)")
 ```
 
 ```{julia}
-plot(pricevec, pricevec .* quantvec / 1000, legend = false)
+plot(priceVec, priceVec .* salesVec / 1000, legend = false)
 xlabel!("Price (million JPY)")
 ylabel!("Revenue (billion JPY)")
 ```
 
 ```{julia}
-opt_res = optimize(
-    x -> - f_share(x[1], 2016, NameID_target, dt_application, iv_GH_res) * x[1],
+@time resultMaxSales = optimize(
+    x -> - calculateSales(
+        x[1], 
+        2016, 
+        targetNameID, 
+        data, 
+        resultGH
+        ) * x[1],
     [1.0]
 );
 
-@printf("Revenue-maximizing price: %.3f \n", opt_res.minimizer[1])
-@printf("Max revenue : %.3f", -opt_res.minimum)
+@printf("Revenue-maximizing price: %.3f \n", resultMaxSales.minimizer[1])
+@printf("Maximized revenue : %.3f", -resultMaxSales.minimum)
 ```

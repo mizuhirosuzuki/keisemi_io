@@ -244,6 +244,16 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   <a href="./dynamic_game_estimation_1.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">推定 1</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./dynamic_game_estimation_2.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">推定 2</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./dynamic_game_counterfactual.html" class="sidebar-item-text sidebar-link"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">反実仮想シミュレーション</span></a>
+  </div>
+</li>
       </ul>
   </li>
     </ul>
@@ -255,13 +265,10 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#section" id="toc-section" class="nav-link active" data-scroll-target="#section"><span class="toc-section-number">10</span>  3</a>
-  <ul class="collapse">
-  <li><a href="#step-1" id="toc-step-1" class="nav-link" data-scroll-target="#step-1"><span class="toc-section-number">10.1</span>  Step 1</a></li>
-  <li><a href="#step-4" id="toc-step-4" class="nav-link" data-scroll-target="#step-4"><span class="toc-section-number">10.2</span>  Step 4</a></li>
-  <li><a href="#step-5" id="toc-step-5" class="nav-link" data-scroll-target="#step-5"><span class="toc-section-number">10.3</span>  Step 5</a></li>
-  <li><a href="#step-6" id="toc-step-6" class="nav-link" data-scroll-target="#step-6"><span class="toc-section-number">10.4</span>  Step 6</a></li>
-  </ul></li>
+  <li><a href="#パラメタの設定" id="toc-パラメタの設定" class="nav-link active" data-scroll-target="#パラメタの設定"><span class="toc-section-number">9.1</span>  パラメタの設定</a></li>
+  <li><a href="#各企業の利潤の計算" id="toc-各企業の利潤の計算" class="nav-link" data-scroll-target="#各企業の利潤の計算"><span class="toc-section-number">9.2</span>  各企業の利潤の計算</a></li>
+  <li><a href="#ccpの計算" id="toc-ccpの計算" class="nav-link" data-scroll-target="#ccpの計算"><span class="toc-section-number">9.3</span>  CCPの計算</a></li>
+  <li><a href="#疑似データの生成" id="toc-疑似データの生成" class="nav-link" data-scroll-target="#疑似データの生成"><span class="toc-section-number">9.4</span>  疑似データの生成</a></li>
   </ul>
 </nav>
     </div>
@@ -293,648 +300,483 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">JLD2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>beta <span class="op">=</span> <span class="fl">0.8</span>;</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cn">eulergamma</span> <span class="op">=</span> <span class="fu">Float64</span>(<span class="bu">MathConstants</span>.<span class="cn">eulergamma</span>);</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>TransitionMat <span class="op">=</span> [<span class="fl">0.7</span> <span class="fl">0.3</span>; <span class="fl">0.4</span> <span class="fl">0.6</span>]</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">123</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">mutable struct</span> array_struct</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    CCP1Mat<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    CCP2Mat<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    stateTransitionMat<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    equilibriumProfitFirm1<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    equilibriumProfitFirm2<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    expectedShockUnderBestActionFirm1<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    expectedShockUnderBestActionFirm2<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    exanteV1<span class="op">::</span><span class="dt">Vector{Float64}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    exanteV2<span class="op">::</span><span class="dt">Vector{Float64}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    updatedCCP1Numerator<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    updatedCCP2Numerator<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    CCP1MatUpdated<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    CCP2MatUpdated<span class="op">::</span><span class="dt">Matrix{Float64}</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    stateTransitionMatFirm2ActionSpecific<span class="op">::</span><span class="dt">Array{Float64, 3}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    stateTransitionMatFirm1ActionSpecific<span class="op">::</span><span class="dt">Array{Float64, 3}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    exanteV1Updated<span class="op">::</span><span class="dt">Vector{Float64}</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    exanteV2Updated<span class="op">::</span><span class="dt">Vector{Float64}</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="kw">mutable struct</span> global_param_struct</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    beta<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="cn">eulergamma</span><span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    entryMat<span class="op">::</span><span class="dt">Matrix{Int}</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    numFirmsVec<span class="op">::</span><span class="dt">Vector{Int}</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    economyVec<span class="op">::</span><span class="dt">Vector{Int}</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    possibleActionArray<span class="op">::</span><span class="dt">Array{Int, 3}</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="3">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Parameters <span class="op">=</span> [</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.3</span>,</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.2</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>];</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>TrueParameterValues <span class="op">=</span> [</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.3</span>,</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span>,</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.2</span>,</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>];</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> file <span class="kw">in</span> <span class="fu">readdir</span>(<span class="st">"functions/dynamic_game/"</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">include</span>(<span class="st">"functions/dynamic_game/"</span> <span class="op">*</span> file)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<section id="パラメタの設定" class="level2" data-number="9.1">
+<h2 data-number="9.1" class="anchored" data-anchor-id="パラメタの設定"><span class="header-section-number">9.1</span> パラメタの設定</h2>
 <div class="cell" data-execution_count="4">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>CCP1Adjuster <span class="op">=</span> [</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span>;</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>];</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>CCP1Adjuster <span class="op">=</span> <span class="fu">vcat</span>(CCP1Adjuster, CCP1Adjuster);</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>CCP2Adjuster <span class="op">=</span> [</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span>;</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>];</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>CCP2Adjuster <span class="op">=</span> <span class="fu">vcat</span>(CCP2Adjuster, CCP2Adjuster);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">123</span>);</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>beta <span class="op">=</span> <span class="fl">0.8</span>;</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cn">eulergamma</span> <span class="op">=</span> <span class="fu">Float64</span>(<span class="bu">MathConstants</span>.<span class="cn">eulergamma</span>);</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>TransitionMat <span class="op">=</span> [<span class="fl">0.7</span> <span class="fl">0.3</span>; <span class="fl">0.4</span> <span class="fl">0.6</span>]</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>entryMat <span class="op">=</span> <span class="fu">repeat</span>([</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">0</span>;</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span>;</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">0</span>;</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>], <span class="fl">2</span>);</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>numFirmsVec <span class="op">=</span> <span class="fu">vec</span>(<span class="fu">sum</span>(entryMat, dims <span class="op">=</span> <span class="fl">2</span>));</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>economyVec <span class="op">=</span> [<span class="fu">repeat</span>([<span class="fl">1</span>], <span class="fl">4</span>); <span class="fu">repeat</span>([<span class="fl">0</span>], <span class="fl">4</span>)];</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>possibleActionArray <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">Int</span>, <span class="fl">8</span>, <span class="fl">3</span>, <span class="fl">2</span>);</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>possibleActionArray[<span class="op">:</span>, <span class="op">:</span>, <span class="fl">1</span>] <span class="op">.=</span> <span class="fu">repeat</span>([</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span>;</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>], <span class="fl">2</span>);</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>possibleActionArray[<span class="op">:</span>, <span class="op">:</span>, <span class="fl">2</span>] <span class="op">.=</span> <span class="fu">repeat</span>([</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span>;</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0</span> <span class="fl">1</span> <span class="fl">1</span>;</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span> <span class="fl">1</span> <span class="fl">0</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>], <span class="fl">2</span>);</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>global_param <span class="op">=</span> <span class="fu">global_param_struct</span>(</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    beta,</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="cn">eulergamma</span>,</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    entryMat,</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    numFirmsVec,</span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>    economyVec,</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    possibleActionArray</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="5">
-<details>
-<summary>Pi gen</summary>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi1gen</span>(theta)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> [</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>] <span class="op">+</span> theta[<span class="fl">3</span>],</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>] <span class="op">+</span> theta[<span class="fl">2</span>] <span class="op">+</span> theta[<span class="fl">3</span>],</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>],</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">1</span>] <span class="op">+</span> theta[<span class="fl">2</span>]</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    ];</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> [theta[<span class="fl">4</span>], <span class="fl">0</span>, theta[<span class="fl">5</span>]];</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(base, <span class="fl">3</span>), (<span class="fl">8</span>, <span class="op">:</span>));</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(invdiv, <span class="fl">8</span>), (<span class="op">:</span>, <span class="fl">8</span>))<span class="ch">';</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> base <span class="op">+</span> invdiv;</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi2gen</span>(theta)</span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> [</span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>] <span class="op">+</span> theta[<span class="fl">8</span>],</span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>] <span class="op">+</span> theta[<span class="fl">7</span>] <span class="op">+</span> theta[<span class="fl">8</span>],</span>
-<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>],</span>
-<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span>,</span>
-<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        theta[<span class="fl">6</span>] <span class="op">+</span> theta[<span class="fl">7</span>]</span>
-<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    ];</span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> [theta[<span class="fl">9</span>], <span class="fl">0</span>, theta[<span class="fl">10</span>]];</span>
-<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    base <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(base, <span class="fl">3</span>), (<span class="fl">8</span>, <span class="op">:</span>));</span>
-<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    invdiv <span class="op">=</span> <span class="fu">reshape</span>(<span class="fu">repeat</span>(invdiv, <span class="fl">8</span>), (<span class="op">:</span>, <span class="fl">8</span>))<span class="ch">';</span></span>
-<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> base <span class="op">+</span> invdiv;</span>
-<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Parameters <span class="op">=</span> [</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.3</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.2</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.27</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="fl">0.45</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">0.15</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span><span class="fl">2.10</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>];</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>parameterMat <span class="op">=</span> <span class="fu">hcat</span>([</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    [Parameters[i]; Parameters[<span class="fl">3</span><span class="op">:</span><span class="fl">6</span>]]</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    for i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>]<span class="op">...</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="6">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>pi1 <span class="op">=</span> <span class="fu">pi1gen</span>(TrueParameterValues) <span class="op">.*</span> CCP1Adjuster;</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>pi2 <span class="op">=</span> <span class="fu">pi2gen</span>(TrueParameterValues) <span class="op">.*</span> CCP2Adjuster;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<section id="section" class="level1" data-number="10">
-<h1 data-number="10"><span class="header-section-number">10</span> 3</h1>
-<section id="step-1" class="level2" data-number="10.1">
-<h2 data-number="10.1" class="anchored" data-anchor-id="step-1"><span class="header-section-number">10.1</span> Step 1</h2>
+</section>
+<section id="各企業の利潤の計算" class="level2" data-number="9.2">
+<h2 data-number="9.2" class="anchored" data-anchor-id="各企業の利潤の計算"><span class="header-section-number">9.2</span> 各企業の利潤の計算</h2>
 <div class="cell" data-execution_count="7">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>CCP1 <span class="op">=</span> <span class="fu">repeat</span>([<span class="fl">0.5</span>], <span class="fl">8</span>);</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>CCP2 <span class="op">=</span> <span class="fu">repeat</span>([<span class="fl">0.5</span>], <span class="fl">8</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>profitFirm1 <span class="op">=</span> <span class="fu">calculateFirmProfit</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    parameterMat,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    global_param.entryMat,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    global_param.numFirmsVec,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    global_param.economyVec,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    global_param.possibleActionArray,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="fl">1</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>profitFirm2 <span class="op">=</span> <span class="fu">calculateFirmProfit</span>(</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    parameterMat,</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    global_param.entryMat,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    global_param.numFirmsVec,</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    global_param.economyVec,</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    global_param.possibleActionArray,</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="fl">2</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+</section>
+<section id="ccpの計算" class="level2" data-number="9.3">
+<h2 data-number="9.3" class="anchored" data-anchor-id="ccpの計算"><span class="header-section-number">9.3</span> CCPの計算</h2>
 <div class="cell" data-execution_count="8">
-<details>
-<summary>CCP Transform</summary>
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP1Transform</span>(x)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">1</span>];</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">2</span>];</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">3</span>] x[<span class="fl">3</span>] <span class="fl">0</span>;</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">4</span>] x[<span class="fl">4</span>] <span class="fl">0</span>;</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">5</span>];</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">6</span>];</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">7</span>] x[<span class="fl">7</span>] <span class="fl">0</span>;</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">8</span>] x[<span class="fl">8</span>] <span class="fl">0</span>;</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    ]</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP2Transform</span>(x)</span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">1</span>];</span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">2</span>] x[<span class="fl">2</span>] <span class="fl">0</span>;</span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">3</span>];</span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">4</span>] x[<span class="fl">4</span>] <span class="fl">0</span>;</span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">5</span>];</span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">6</span>] x[<span class="fl">6</span>] <span class="fl">0</span>;</span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> x[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>x[<span class="fl">7</span>];</span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>x[<span class="fl">8</span>] x[<span class="fl">8</span>] <span class="fl">0</span>;</span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    ]</span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<div class="cell" data-execution_count="9">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>CCP1Mat <span class="op">=</span> <span class="fu">CCP1Transform</span>(CCP1);</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>CCP2Mat <span class="op">=</span> <span class="fu">CCP2Transform</span>(CCP2);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="10">
-<details>
-<summary>fP</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fP</span>(Matrix1, Vec1, Vec2)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    TempMat0 <span class="op">=</span> <span class="fu">kron</span>(Matrix1, <span class="fu">ones</span>(<span class="fl">4</span>, <span class="fl">4</span>));</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> [</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">1</span>];</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">2</span>];</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">3</span>] Vec1[<span class="fl">3</span>];</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">4</span>] Vec1[<span class="fl">4</span>];</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">5</span>];</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">6</span>];</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">7</span>] Vec1[<span class="fl">7</span>];</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">8</span>] Vec1[<span class="fl">8</span>];</span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    ];</span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> <span class="fu">kron</span>(TempMat1, [<span class="fl">1</span> <span class="fl">1</span>]);</span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> <span class="fu">hcat</span>(TempMat1, TempMat1);</span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> [</span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">1</span>];</span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">2</span>] Vec2[<span class="fl">2</span>];</span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">3</span>];</span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">4</span>] Vec2[<span class="fl">4</span>];</span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">5</span>];</span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">6</span>] Vec2[<span class="fl">6</span>];</span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">7</span>];</span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">8</span>] Vec2[<span class="fl">8</span>];</span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>    ];</span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> <span class="fu">kron</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">4</span>), TempMat2);</span>
-<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> TempMat2;</span>
-<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-<div class="cell" data-execution_count="11">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>fPsigma <span class="op">=</span> <span class="fu">fP</span>(TransitionMat, CCP1, CCP2);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="12">
-<details>
-<summary>piPsigma Gen</summary>
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi1PsigmaGen</span>(pi1, Mat2)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    pi1_dec <span class="op">=</span> pi1[<span class="op">:</span>, <span class="fl">1</span>];</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    pi1_0 <span class="op">=</span> pi1[<span class="op">:</span>, <span class="fl">2</span>];</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    pi1_inc <span class="op">=</span> pi1[<span class="op">:</span>, <span class="fl">3</span>];</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    pi1_dec <span class="op">=</span> (pi1_dec <span class="op">.*</span> Mat2) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    pi1_0 <span class="op">=</span> (pi1_0 <span class="op">.*</span> Mat2) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    pi1_inc <span class="op">=</span> (pi1_inc <span class="op">.*</span> Mat2) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">hcat</span>(</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>        pi1_dec, pi1_0, pi1_inc</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">pi2PsigmaGen</span>(pi2, Mat1)</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    pi2_dec <span class="op">=</span> pi2[<span class="op">:</span>, <span class="fl">1</span>];</span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    pi2_0 <span class="op">=</span> pi2[<span class="op">:</span>, <span class="fl">2</span>];</span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    pi2_inc <span class="op">=</span> pi2[<span class="op">:</span>, <span class="fl">3</span>];</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    pi2_dec <span class="op">=</span> (pi2_dec <span class="op">.*</span> Mat1) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    pi2_0 <span class="op">=</span> (pi2_0 <span class="op">.*</span> Mat1) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    pi2_inc <span class="op">=</span> (pi2_inc <span class="op">.*</span> Mat1) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>);</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">hcat</span>(</span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>        pi2_dec, pi2_0, pi2_inc</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output cell-output-display" data-execution_count="13">
-<pre><code>pi2PsigmaGen (generic function with 1 method)</code></pre>
-</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>CCP1Stay <span class="op">=</span> <span class="fu">repeat</span>([<span class="fl">0.5</span>], <span class="fl">8</span>);</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>CCP2Stay <span class="op">=</span> <span class="fu">repeat</span>([<span class="fl">0.5</span>], <span class="fl">8</span>);</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>CCP1Mat <span class="op">=</span> (</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">hcat</span>(</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="op">.-</span> CCP1Stay,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        CCP1Stay,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="op">.-</span> CCP1Stay,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    ) <span class="op">.*</span> </span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    global_param.possibleActionArray[<span class="op">:</span>, <span class="op">:</span>, <span class="fl">1</span>]</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>CCP2Mat <span class="op">=</span> (</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">hcat</span>(</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="op">.-</span> CCP2Stay,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        CCP2Stay,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span> <span class="op">.-</span> CCP2Stay,</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    ) <span class="op">.*</span> </span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    global_param.possibleActionArray[<span class="op">:</span>, <span class="op">:</span>, <span class="fl">2</span>]</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>stateTransitionMat <span class="op">=</span> <span class="fu">generateStateTransitionMat</span>(</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    TransitionMat, </span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    CCP1Mat, </span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    CCP2Mat, </span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    global_param.possibleActionArray</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>equilibriumProfitFirm1 <span class="op">=</span> <span class="fu">calculateProfitGivenOpponentCCP</span>(profitFirm1, CCP2Mat);</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>equilibriumProfitFirm2 <span class="op">=</span> <span class="fu">calculateProfitGivenOpponentCCP</span>(profitFirm2, CCP1Mat);</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>expectedShockUnderBestActionFirm1 <span class="op">=</span> (</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">replace</span>(<span class="fu">log</span>.(CCP1Mat), <span class="op">-</span><span class="cn">Inf</span> <span class="op">=&gt;</span> <span class="fl">0</span>)</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>expectedShockUnderBestActionFirm2 <span class="op">=</span> (</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">replace</span>(<span class="fu">log</span>.(CCP2Mat), <span class="op">-</span><span class="cn">Inf</span> <span class="op">=&gt;</span> <span class="fl">0</span>)</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>exanteV1 <span class="op">=</span> <span class="fu">vec</span>(</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    (<span class="fu">I</span>(<span class="fl">8</span>) <span class="op">-</span> beta <span class="op">.*</span> stateTransitionMat) <span class="op">\</span> </span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sum</span>(CCP1Mat <span class="op">.*</span> (equilibriumProfitFirm1 <span class="op">+</span> expectedShockUnderBestActionFirm1), dims <span class="op">=</span> <span class="fl">2</span>)</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>exanteV2 <span class="op">=</span> <span class="fu">vec</span>(</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>    (<span class="fu">I</span>(<span class="fl">8</span>) <span class="op">-</span> beta <span class="op">.*</span> stateTransitionMat) <span class="op">\</span> </span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sum</span>(CCP2Mat <span class="op">.*</span> (equilibriumProfitFirm2 <span class="op">+</span> expectedShockUnderBestActionFirm2), dims <span class="op">=</span> <span class="fl">2</span>)</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="13">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>pi1Psigma <span class="op">=</span> <span class="fu">pi1PsigmaGen</span>(pi1, CCP2Mat);</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>pi2Psigma <span class="op">=</span> <span class="fu">pi2PsigmaGen</span>(pi2, CCP1Mat);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># updatedCCP1Numerator = zeros(8, 3);</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># updatedCCP2Numerator = zeros(8, 3);</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># CCP1MatUpdated = zeros(8, 3);</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># CCP2MatUpdated = zeros(8, 3);</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co"># stateTransitionMatFirm2ActionSpecific = zeros(8, 8, 3);</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co"># stateTransitionMatFirm1ActionSpecific = zeros(8, 8, 3);</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>data_generate_struct <span class="op">=</span> <span class="fu">array_struct</span>(</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    CCP1Mat,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    CCP2Mat,</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    stateTransitionMat,</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    equilibriumProfitFirm1,</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    equilibriumProfitFirm2,</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    expectedShockUnderBestActionFirm1,</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    expectedShockUnderBestActionFirm2,</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    exanteV1,</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    exanteV2,</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">3</span>),</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">3</span>),</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">3</span>),</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">3</span>),</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">8</span>, <span class="fl">3</span>),</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>, <span class="fl">8</span>, <span class="fl">3</span>),</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>),</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>    <span class="fu">zeros</span>(<span class="fl">8</span>)</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="14">
-<details>
-<summary>CCP Log Transform</summary>
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP1LogTransform</span>(x)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">1</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">1</span>]);</span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">2</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">2</span>]);</span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">3</span>]) <span class="fu">log</span>(x[<span class="fl">3</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">4</span>]) <span class="fu">log</span>(x[<span class="fl">4</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">5</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">5</span>]);</span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">6</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">6</span>]);</span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">7</span>]) <span class="fu">log</span>(x[<span class="fl">7</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">8</span>]) <span class="fu">log</span>(x[<span class="fl">8</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    ]</span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">CCP2LogTransform</span>(x)</span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [</span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">1</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">1</span>]);</span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">2</span>]) <span class="fu">log</span>(x[<span class="fl">2</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">3</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">3</span>]);</span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">4</span>]) <span class="fu">log</span>(x[<span class="fl">4</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">5</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">5</span>]);</span>
-<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">6</span>]) <span class="fu">log</span>(x[<span class="fl">6</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0</span> <span class="fu">log</span>(x[<span class="fl">7</span>]) <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">7</span>]);</span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">log</span>(<span class="fl">1</span> <span class="op">-</span> x[<span class="fl">8</span>]) <span class="fu">log</span>(x[<span class="fl">8</span>]) <span class="fl">0</span>;</span>
-<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>    ]</span>
-<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output cell-output-display" data-execution_count="15">
-<pre><code>CCP2LogTransform (generic function with 1 method)</code></pre>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>diffExanteV <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>iter <span class="op">=</span> <span class="fl">0</span>;</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> <span class="cf">while</span> (diffExanteV <span class="op">&gt;</span> <span class="fl">1e-12</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">calculateFirm2ActionSpecificTransitionMat!</span>(</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        TransitionMat, </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.CCP2Mat,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.stateTransitionMatFirm2ActionSpecific,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        global_param.possibleActionArray</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">calculateFirm1ActionSpecificTransitionMat!</span>(</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        TransitionMat, </span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.CCP1Mat,</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.stateTransitionMatFirm1ActionSpecific,</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        global_param.possibleActionArray</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.updatedCCP1Numerator[<span class="op">:</span>, i] <span class="op">.=</span> <span class="fu">exp</span>.(</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>            <span class="fu">view</span>(data_generate_struct.equilibriumProfitFirm1, <span class="op">:</span>, i) <span class="op">.+</span> </span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>            beta <span class="op">.*</span> <span class="fu">view</span>(data_generate_struct.stateTransitionMatFirm2ActionSpecific, <span class="op">:</span>, <span class="op">:</span>, i) <span class="op">*</span> </span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>            data_generate_struct.exanteV1 <span class="op">.*</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>            <span class="fu">view</span>(global_param.possibleActionArray, <span class="op">:</span>, i, <span class="fl">1</span>)</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.CCP1MatUpdated <span class="op">.=</span> (</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>        (</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>            data_generate_struct.updatedCCP1Numerator <span class="op">./</span> </span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>            (<span class="fu">sum</span>(data_generate_struct.updatedCCP1Numerator, dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span>)) <span class="op">.*</span> </span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>        <span class="fu">view</span>(global_param.possibleActionArray, <span class="op">:</span>, <span class="op">:</span>, <span class="fl">1</span>)</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span></span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.updatedCCP2Numerator[<span class="op">:</span>, i] <span class="op">.=</span> <span class="fu">exp</span>.(</span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>            <span class="fu">view</span>(data_generate_struct.equilibriumProfitFirm2, <span class="op">:</span>, i) <span class="op">.+</span> </span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>            beta <span class="op">.*</span> <span class="fu">view</span>(data_generate_struct.stateTransitionMatFirm1ActionSpecific, <span class="op">:</span>, <span class="op">:</span>, i) <span class="op">*</span> </span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>            data_generate_struct.exanteV2 <span class="op">.*</span></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>            <span class="fu">view</span>(global_param.possibleActionArray, <span class="op">:</span>, i, <span class="fl">2</span>)</span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.CCP2MatUpdated <span class="op">.=</span> (</span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>        (</span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>            data_generate_struct.updatedCCP2Numerator <span class="op">./</span> </span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>            (<span class="fu">sum</span>(data_generate_struct.updatedCCP2Numerator, dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span>)</span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>            ) <span class="op">.*</span> </span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>        <span class="fu">view</span>(global_param.possibleActionArray, <span class="op">:</span>, <span class="op">:</span>, <span class="fl">2</span>)</span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.stateTransitionMat <span class="op">.=</span> <span class="fu">generateStateTransitionMat</span>(</span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>        TransitionMat, </span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.CCP1MatUpdated, </span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.CCP2MatUpdated, </span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a>        global_param.possibleActionArray</span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.equilibriumProfitFirm1 <span class="op">.=</span> <span class="fu">calculateProfitGivenOpponentCCP</span>(</span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>        profitFirm1, </span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.CCP2MatUpdated</span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.equilibriumProfitFirm2 <span class="op">.=</span> <span class="fu">calculateProfitGivenOpponentCCP</span>(</span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a>        profitFirm2, </span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a>        data_generate_struct.CCP1MatUpdated</span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.expectedShockUnderBestActionFirm1 <span class="op">.=</span> (</span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>        <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">replace</span>(<span class="fu">log</span>.(data_generate_struct.CCP1MatUpdated), <span class="op">-</span><span class="cn">Inf</span> <span class="op">=&gt;</span> <span class="fl">0</span>)</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.expectedShockUnderBestActionFirm2 <span class="op">.=</span> (</span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>        <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">replace</span>(<span class="fu">log</span>.(data_generate_struct.CCP2MatUpdated), <span class="op">-</span><span class="cn">Inf</span> <span class="op">=&gt;</span> <span class="fl">0</span>)</span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.exanteV1Updated <span class="op">.=</span> <span class="fu">vec</span>(</span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a>        (<span class="fu">I</span>(<span class="fl">8</span>) <span class="op">-</span> beta <span class="op">.*</span> data_generate_struct.stateTransitionMat) <span class="op">\</span> </span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sum</span>(</span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a>            data_generate_struct.CCP1MatUpdated <span class="op">.*</span> (</span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a>                data_generate_struct.equilibriumProfitFirm1 <span class="op">+</span> </span>
+<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a>                data_generate_struct.expectedShockUnderBestActionFirm1</span>
+<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a>                ), dims <span class="op">=</span> <span class="fl">2</span>)</span>
+<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.exanteV2Updated <span class="op">.=</span> <span class="fu">vec</span>(</span>
+<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a>        (<span class="fu">I</span>(<span class="fl">8</span>) <span class="op">-</span> beta <span class="op">.*</span> data_generate_struct.stateTransitionMat) <span class="op">\</span> </span>
+<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sum</span>(</span>
+<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a>            data_generate_struct.CCP2MatUpdated <span class="op">.*</span> (</span>
+<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a>                data_generate_struct.equilibriumProfitFirm2 <span class="op">+</span> </span>
+<span id="cb9-87"><a href="#cb9-87" aria-hidden="true" tabindex="-1"></a>                data_generate_struct.expectedShockUnderBestActionFirm2</span>
+<span id="cb9-88"><a href="#cb9-88" aria-hidden="true" tabindex="-1"></a>                ), dims <span class="op">=</span> <span class="fl">2</span>)</span>
+<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a>    );</span>
+<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a>    diffExanteV <span class="op">=</span> <span class="fu">sum</span>(</span>
+<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a>        (data_generate_struct.exanteV1Updated <span class="op">-</span> data_generate_struct.exanteV1)<span class="op">.^</span><span class="fl">2</span></span>
+<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a>        ) <span class="op">+</span> <span class="fu">sum</span>(</span>
+<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a>            (data_generate_struct.exanteV2Updated <span class="op">-</span> data_generate_struct.exanteV2)<span class="op">.^</span><span class="fl">2</span></span>
+<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a>            );</span>
+<span id="cb9-96"><a href="#cb9-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-97"><a href="#cb9-97" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.exanteV1 <span class="op">.=</span> data_generate_struct.exanteV1Updated[<span class="op">:</span>];</span>
+<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.exanteV2 <span class="op">.=</span> data_generate_struct.exanteV2Updated[<span class="op">:</span>];</span>
+<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.CCP1Mat <span class="op">.=</span> data_generate_struct.CCP1MatUpdated[<span class="op">:</span>, <span class="op">:</span>];</span>
+<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a>    data_generate_struct.CCP2Mat <span class="op">.=</span> data_generate_struct.CCP2MatUpdated[<span class="op">:</span>, <span class="op">:</span>];</span>
+<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(diffExanteV)</span>
+<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a>    iter <span class="op">+=</span> <span class="fl">1</span>;</span>
+<span id="cb9-105"><a href="#cb9-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-106"><a href="#cb9-106" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb9-107"><a href="#cb9-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-108"><a href="#cb9-108" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(iter)</span>
+<span id="cb9-109"><a href="#cb9-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-110"><a href="#cb9-110" aria-hidden="true" tabindex="-1"></a>CCP1Mat <span class="op">.=</span> data_generate_struct.CCP1Mat;</span>
+<span id="cb9-111"><a href="#cb9-111" aria-hidden="true" tabindex="-1"></a>CCP2Mat <span class="op">.=</span> data_generate_struct.CCP2Mat;</span>
+<span id="cb9-112"><a href="#cb9-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-113"><a href="#cb9-113" aria-hidden="true" tabindex="-1"></a>exanteV1 <span class="op">=</span> data_generate_struct.exanteV1;</span>
+<span id="cb9-114"><a href="#cb9-114" aria-hidden="true" tabindex="-1"></a>exanteV2 <span class="op">=</span> data_generate_struct.exanteV2;</span>
+<span id="cb9-115"><a href="#cb9-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-116"><a href="#cb9-116" aria-hidden="true" tabindex="-1"></a><span class="fu">hcat</span>(CCP1Mat, CCP2Mat)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>9.059385123406884
+0.0010509979269102616
+5.0928397934340845e-6
+5.6083848572020334e-8
+5.889460824473882e-10
+5.5728209722870154e-12
+3.866293900916097e-14
+  1.301903 seconds (5.23 M allocations: 332.773 MiB, 3.90% gc time, 99.35% compilation time)
+7</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>8×6 Matrix{Float64}:
+ 0.0       0.683563  0.316437  0.0       0.714725  0.285275
+ 0.0       0.712662  0.287338  0.207591  0.792409  0.0
+ 0.184349  0.815651  0.0       0.0       0.741697  0.258303
+ 0.206181  0.793819  0.0       0.231269  0.768731  0.0
+ 0.0       0.708067  0.291933  0.0       0.737685  0.262315
+ 0.0       0.735965  0.264035  0.227294  0.772706  0.0
+ 0.202453  0.797547  0.0       0.0       0.76353   0.23647
+ 0.225863  0.774137  0.0       0.2527    0.7473    0.0</code></pre>
 </div>
 </div>
+</section>
+<section id="疑似データの生成" class="level2" data-number="9.4">
+<h2 data-number="9.4" class="anchored" data-anchor-id="疑似データの生成"><span class="header-section-number">9.4</span> 疑似データの生成</h2>
 <div class="cell" data-execution_count="15">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>eP1 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP1LogTransform</span>(CCP1);</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>eP2 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP2LogTransform</span>(CCP2);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>NumSimMarkets <span class="op">=</span> <span class="fl">500</span>;</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>NumSimPeriods <span class="op">=</span> <span class="fl">50</span>;</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>NumSimFirms <span class="op">=</span> <span class="fl">2</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="16">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>ExanteV1 <span class="op">=</span> (</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    ((CCP1Mat <span class="op">.*</span> (pi1Psigma <span class="op">+</span> eP1)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>ExanteV2 <span class="op">=</span> (</span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    ((CCP2Mat <span class="op">.*</span> (pi2Psigma <span class="op">+</span> eP2)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>InitialState <span class="op">=</span> <span class="fu">sample</span>(<span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, NumSimMarkets);</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>RandomNumbers <span class="op">=</span> <span class="fu">reshape</span>(</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rand</span>(NumSimMarkets <span class="op">*</span> NumSimPeriods <span class="op">*</span> (NumSimFirms <span class="op">+</span> <span class="fl">1</span>)),</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    (NumSimMarkets, NumSimPeriods, NumSimFirms <span class="op">+</span> <span class="fl">1</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="17">
-<details>
-<summary>fP a given</summary>
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fP_a1given</span>(Matrix1, Vec2)</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    TempMat0 <span class="op">=</span> <span class="fu">kron</span>(Matrix1, <span class="fu">ones</span>(<span class="fl">4</span>, <span class="fl">4</span>));</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> [</span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">1</span>] Vec2[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">1</span>];</span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">2</span>] Vec2[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">2</span>] Vec2[<span class="fl">2</span>];</span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">3</span>] Vec2[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">3</span>];</span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">4</span>] Vec2[<span class="fl">4</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">4</span>] Vec2[<span class="fl">4</span>];</span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">5</span>] Vec2[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">5</span>];</span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">6</span>] Vec2[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">6</span>] Vec2[<span class="fl">6</span>];</span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>        Vec2[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">7</span>] Vec2[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">7</span>];</span>
-<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">8</span>] Vec2[<span class="fl">8</span>] <span class="fl">1</span><span class="op">-</span>Vec2[<span class="fl">8</span>] Vec2[<span class="fl">8</span>];</span>
-<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>    ];</span>
-<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>    TempMat2 <span class="op">=</span> <span class="fu">hcat</span>(TempMat2, TempMat2);</span>
-<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
-<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>        <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
-<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>);</span>
-<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
-<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
-<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>)<span class="ch">';</span></span>
-<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>    output1 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat2 <span class="op">.*</span> MatAdjustMinus1 <span class="op">.*</span> MatAdjustMinus2;</span>
-<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>    ForZero <span class="op">=</span> <span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">2</span>));</span>
-<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">kron</span>(ForZero, <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">2</span>));</span>
-<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">hcat</span>(MatAdjustZero, MatAdjustZero);</span>
-<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">vcat</span>(MatAdjustZero, MatAdjustZero);</span>
-<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a>    output2 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat2 <span class="op">.*</span> MatAdjustZero;</span>
-<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
-<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
-<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>);</span>
-<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
-<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a>        <span class="fu">zeros</span>(<span class="fl">2</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">2</span>, <span class="fl">8</span>)</span>
-<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">2</span>)<span class="ch">';</span></span>
-<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a>    output3 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat2 <span class="op">.*</span> MatAdjustPlus1 <span class="op">.*</span> MatAdjustPlus2;</span>
-<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [output1, output2, output3]</span>
-<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">fP_a2given</span>(Matrix1, Vec1)</span>
-<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a>    TempMat0 <span class="op">=</span> <span class="fu">kron</span>(Matrix1, <span class="fu">ones</span>(<span class="fl">4</span>, <span class="fl">4</span>));</span>
-<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-48"><a href="#cb19-48" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> [</span>
-<span id="cb19-49"><a href="#cb19-49" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">1</span>] Vec1[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">1</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">1</span>];</span>
-<span id="cb19-50"><a href="#cb19-50" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">2</span>] Vec1[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">2</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">2</span>];</span>
-<span id="cb19-51"><a href="#cb19-51" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">3</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">3</span>] Vec1[<span class="fl">3</span>] Vec1[<span class="fl">3</span>];</span>
-<span id="cb19-52"><a href="#cb19-52" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">4</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">4</span>] Vec1[<span class="fl">4</span>] Vec1[<span class="fl">4</span>];</span>
-<span id="cb19-53"><a href="#cb19-53" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">5</span>] Vec1[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">5</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">5</span>];</span>
-<span id="cb19-54"><a href="#cb19-54" aria-hidden="true" tabindex="-1"></a>        Vec1[<span class="fl">6</span>] Vec1[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">6</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">6</span>];</span>
-<span id="cb19-55"><a href="#cb19-55" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">7</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">7</span>] Vec1[<span class="fl">7</span>] Vec1[<span class="fl">7</span>];</span>
-<span id="cb19-56"><a href="#cb19-56" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">8</span>] <span class="fl">1</span><span class="op">-</span>Vec1[<span class="fl">8</span>] Vec1[<span class="fl">8</span>] Vec1[<span class="fl">8</span>];</span>
-<span id="cb19-57"><a href="#cb19-57" aria-hidden="true" tabindex="-1"></a>    ];</span>
-<span id="cb19-58"><a href="#cb19-58" aria-hidden="true" tabindex="-1"></a>    TempMat1 <span class="op">=</span> <span class="fu">kron</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">2</span>), TempMat1);</span>
-<span id="cb19-59"><a href="#cb19-59" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-60"><a href="#cb19-60" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>);</span>
-<span id="cb19-61"><a href="#cb19-61" aria-hidden="true" tabindex="-1"></a>    MatAdjustMinus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>)<span class="ch">';</span></span>
-<span id="cb19-62"><a href="#cb19-62" aria-hidden="true" tabindex="-1"></a>    output1 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> MatAdjustMinus1 <span class="op">.*</span> MatAdjustMinus2;</span>
-<span id="cb19-63"><a href="#cb19-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-64"><a href="#cb19-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-65"><a href="#cb19-65" aria-hidden="true" tabindex="-1"></a>    MatAdjustZero <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(</span>
-<span id="cb19-66"><a href="#cb19-66" aria-hidden="true" tabindex="-1"></a>        <span class="fu">repeat</span>([<span class="fl">1</span>, <span class="fl">0</span>], <span class="fl">4</span>)<span class="ch">',</span></span>
-<span id="cb19-67"><a href="#cb19-67" aria-hidden="true" tabindex="-1"></a>        <span class="fu">repeat</span>([<span class="fl">0</span>, <span class="fl">1</span>], <span class="fl">4</span>)<span class="ch">',</span></span>
-<span id="cb19-68"><a href="#cb19-68" aria-hidden="true" tabindex="-1"></a>    ), <span class="fl">4</span>);</span>
-<span id="cb19-69"><a href="#cb19-69" aria-hidden="true" tabindex="-1"></a>    output2 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> MatAdjustZero;</span>
-<span id="cb19-70"><a href="#cb19-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-71"><a href="#cb19-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-72"><a href="#cb19-72" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus1 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>);</span>
-<span id="cb19-73"><a href="#cb19-73" aria-hidden="true" tabindex="-1"></a>    MatAdjustPlus2 <span class="op">=</span> <span class="fu">repeat</span>(<span class="fu">vcat</span>(<span class="fu">zeros</span>(<span class="fl">1</span>, <span class="fl">8</span>), <span class="fu">ones</span>(<span class="fl">1</span>, <span class="fl">8</span>)), <span class="fl">4</span>)<span class="ch">';</span></span>
-<span id="cb19-74"><a href="#cb19-74" aria-hidden="true" tabindex="-1"></a>    output3 <span class="op">=</span> TempMat0 <span class="op">.*</span> TempMat1 <span class="op">.*</span> MatAdjustPlus1 <span class="op">.*</span> MatAdjustPlus2;</span>
-<span id="cb19-75"><a href="#cb19-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-76"><a href="#cb19-76" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [output1, output2, output3]</span>
-<span id="cb19-77"><a href="#cb19-77" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output cell-output-display" data-execution_count="18">
-<pre><code>fP_a2given (generic function with 1 method)</code></pre>
-</div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>FakeData <span class="op">=</span> <span class="fu">zeros</span>(NumSimMarkets <span class="op">*</span> NumSimPeriods, <span class="fl">8</span>);</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>NumSimMarkets, t <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>NumSimPeriods</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">1</span>] <span class="op">=</span> m;</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">2</span>] <span class="op">=</span> t;</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> t <span class="op">==</span> <span class="fl">1</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> <span class="fl">1</span>, <span class="fl">3</span>] <span class="op">=</span> InitialState[m];</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> <span class="fl">1</span>, <span class="fl">4</span>] <span class="op">=</span> (</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>            (InitialState[m] <span class="op">&gt;=</span> <span class="fl">1</span>) <span class="op">&amp;</span> (InitialState[m] <span class="op">&lt;=</span> <span class="fl">4</span>) ? <span class="fl">1</span> <span class="op">:</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>            <span class="fl">2</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>        sprev <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">3</span>]</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>        a1prev <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">7</span>]</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>        a2prev <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">8</span>]</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (sprev <span class="op">&gt;=</span> <span class="fl">1</span>) <span class="op">&amp;</span> (sprev <span class="op">&lt;=</span> <span class="fl">4</span>)</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span>] <span class="op">=</span> (</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>                (RandomNumbers[m, t, <span class="fl">3</span>] <span class="op">&lt;</span> TransitionMat[<span class="fl">1</span>, <span class="fl">1</span>]) ? <span class="fl">1</span> <span class="op">:</span></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>                <span class="fl">2</span></span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>            );</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span>] <span class="op">=</span> (</span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>                (RandomNumbers[m, t, <span class="fl">3</span>] <span class="op">&lt;</span> TransitionMat[<span class="fl">2</span>, <span class="fl">2</span>]) ? <span class="fl">2</span> <span class="op">:</span></span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>                <span class="fl">1</span></span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>            );</span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>        snow <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span>];</span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>        n1t <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">5</span>] <span class="op">+</span> a1prev;</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>        n2t <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">6</span>] <span class="op">+</span> a2prev;</span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">3</span>] <span class="op">=</span> (</span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">1</span> <span class="op">:</span></span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">2</span> <span class="op">:</span></span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">3</span> <span class="op">:</span></span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">4</span> <span class="op">:</span></span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">5</span> <span class="op">:</span></span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">6</span> <span class="op">:</span></span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">7</span> <span class="op">:</span></span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">8</span> <span class="op">:</span></span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a>            <span class="fl">0</span></span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>    s <span class="op">=</span> <span class="fu">Int</span>(FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">3</span>]);</span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> s <span class="op">==</span> <span class="fl">1</span></span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>];</span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">2</span></span>
+<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>];</span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">3</span></span>
+<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>];</span>
+<span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-74"><a href="#cb14-74" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-75"><a href="#cb14-75" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-77"><a href="#cb14-77" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-78"><a href="#cb14-78" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-79"><a href="#cb14-79" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">4</span></span>
+<span id="cb14-80"><a href="#cb14-80" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span>];</span>
+<span id="cb14-81"><a href="#cb14-81" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-82"><a href="#cb14-82" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-83"><a href="#cb14-83" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">5</span></span>
+<span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span>];</span>
+<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">6</span></span>
+<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">1</span>];</span>
+<span id="cb14-97"><a href="#cb14-97" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-98"><a href="#cb14-98" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-100"><a href="#cb14-100" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">7</span></span>
+<span id="cb14-104"><a href="#cb14-104" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">0</span>];</span>
+<span id="cb14-105"><a href="#cb14-105" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-106"><a href="#cb14-106" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-107"><a href="#cb14-107" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-108"><a href="#cb14-108" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-109"><a href="#cb14-109" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
+<span id="cb14-110"><a href="#cb14-110" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-111"><a href="#cb14-111" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">8</span></span>
+<span id="cb14-112"><a href="#cb14-112" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">1</span>];</span>
+<span id="cb14-113"><a href="#cb14-113" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-114"><a href="#cb14-114" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-115"><a href="#cb14-115" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-116"><a href="#cb14-116" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2Mat[s, <span class="fl">2</span>])</span>
+<span id="cb14-117"><a href="#cb14-117" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
+<span id="cb14-118"><a href="#cb14-118" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-119"><a href="#cb14-119" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb14-120"><a href="#cb14-120" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="18">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>fP_a1 <span class="op">=</span> <span class="fu">fP_a1given</span>(TransitionMat, CCP2);</span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>fP_a2 <span class="op">=</span> <span class="fu">fP_a2given</span>(TransitionMat, CCP1);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="19">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>NewSigmaSeed1 <span class="op">=</span> (</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    pi1Psigma <span class="op">+</span> beta <span class="op">.*</span> <span class="fu">hcat</span>(fP_a1[<span class="fl">1</span>] <span class="op">*</span> ExanteV1, fP_a1[<span class="fl">2</span>] <span class="op">*</span> ExanteV1, fP_a1[<span class="fl">3</span>] <span class="op">*</span> ExanteV1) <span class="op">.*</span> CCP1Adjuster</span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>NewSigmaDeno1 <span class="op">=</span> (</span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sum</span>(<span class="fu">exp</span>.(NewSigmaSeed1), dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span></span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>NewSigma1 <span class="op">=</span> <span class="fu">exp</span>.(NewSigmaSeed1) <span class="op">./</span> NewSigmaDeno1;</span>
-<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>CCP1UpdatedMat <span class="op">=</span> NewSigma1 <span class="op">.*</span> CCP1Adjuster;</span>
-<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>CCP1Updated <span class="op">=</span> CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>];</span>
-<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>NewSigmaSeed2 <span class="op">=</span> (</span>
-<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    pi2Psigma <span class="op">+</span> beta <span class="op">.*</span> <span class="fu">hcat</span>(fP_a2[<span class="fl">1</span>] <span class="op">*</span> ExanteV2, fP_a2[<span class="fl">2</span>] <span class="op">*</span> ExanteV2, fP_a2[<span class="fl">3</span>] <span class="op">*</span> ExanteV2) <span class="op">.*</span> CCP2Adjuster</span>
-<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>NewSigmaDeno2 <span class="op">=</span> (</span>
-<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sum</span>(<span class="fu">exp</span>.(NewSigmaSeed2), dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span></span>
-<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>NewSigma2 <span class="op">=</span> <span class="fu">exp</span>.(NewSigmaSeed2) <span class="op">./</span> NewSigmaDeno2;</span>
-<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>CCP2UpdatedMat <span class="op">=</span> NewSigma2 <span class="op">.*</span> CCP2Adjuster;</span>
-<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>CCP2Updated <span class="op">=</span> CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>];</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
-<section id="step-4" class="level2" data-number="10.2">
-<h2 data-number="10.2" class="anchored" data-anchor-id="step-4"><span class="header-section-number">10.2</span> Step 4</h2>
-<div class="cell" data-execution_count="20">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>fPsigma <span class="op">=</span> <span class="fu">fP</span>(TransitionMat, CCP1Updated, CCP2Updated);</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>pi1Psigma <span class="op">=</span> <span class="fu">pi1PsigmaGen</span>(pi1, CCP2UpdatedMat);</span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>pi2Psigma <span class="op">=</span> <span class="fu">pi2PsigmaGen</span>(pi2, CCP1UpdatedMat);</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>eP1 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP1LogTransform</span>(CCP1Updated);</span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>eP2 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP2LogTransform</span>(CCP2Updated);</span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>ExanteV1Updated <span class="op">=</span> (</span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    ((CCP1UpdatedMat <span class="op">.*</span> (pi1Psigma <span class="op">+</span> eP1)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
-<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>);</span>
-<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>ExanteV2Updated <span class="op">=</span> (</span>
-<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>    (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
-<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>    ((CCP2UpdatedMat <span class="op">.*</span> (pi2Psigma <span class="op">+</span> eP2)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
-<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
-<section id="step-5" class="level2" data-number="10.3">
-<h2 data-number="10.3" class="anchored" data-anchor-id="step-5"><span class="header-section-number">10.3</span> Step 5</h2>
-<div class="cell" data-execution_count="21">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>DiffExanteV <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>iter <span class="op">=</span> <span class="fl">0</span>;</span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> <span class="cf">while</span> (DiffExanteV <span class="op">&gt;</span> <span class="fl">1e-12</span>)</span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    CCP1 <span class="op">=</span> CCP1Updated[<span class="op">:</span>];</span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>    CCP2 <span class="op">=</span> CCP2Updated[<span class="op">:</span>];</span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    ExanteV1 <span class="op">=</span> ExanteV1Updated[<span class="op">:</span>];</span>
-<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>    ExanteV2 <span class="op">=</span> ExanteV2Updated[<span class="op">:</span>];</span>
-<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>    fP_a1 <span class="op">=</span> <span class="fu">fP_a1given</span>(TransitionMat, CCP2);</span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    fP_a2 <span class="op">=</span> <span class="fu">fP_a2given</span>(TransitionMat, CCP1);</span>
-<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>    NewSigmaSeed1 <span class="op">=</span> (</span>
-<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>        pi1Psigma <span class="op">+</span> beta <span class="op">.*</span> <span class="fu">hcat</span>(fP_a1[<span class="fl">1</span>] <span class="op">*</span> ExanteV1, fP_a1[<span class="fl">2</span>] <span class="op">*</span> ExanteV1, fP_a1[<span class="fl">3</span>] <span class="op">*</span> ExanteV1) <span class="op">.*</span> CCP1Adjuster</span>
-<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>    );</span>
-<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>    NewSigmaDeno1 <span class="op">=</span> (</span>
-<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sum</span>(<span class="fu">exp</span>.(NewSigmaSeed1), dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span></span>
-<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    );</span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>    NewSigma1 <span class="op">=</span> <span class="fu">exp</span>.(NewSigmaSeed1) <span class="op">./</span> NewSigmaDeno1;</span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>    CCP1UpdatedMat <span class="op">=</span> NewSigma1 <span class="op">.*</span> CCP1Adjuster;</span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>    CCP1Updated <span class="op">=</span> CCP1UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>];</span>
-<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>    NewSigmaSeed2 <span class="op">=</span> (</span>
-<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>        pi2Psigma <span class="op">+</span> beta <span class="op">.*</span> <span class="fu">hcat</span>(fP_a2[<span class="fl">1</span>] <span class="op">*</span> ExanteV2, fP_a2[<span class="fl">2</span>] <span class="op">*</span> ExanteV2, fP_a2[<span class="fl">3</span>] <span class="op">*</span> ExanteV2) <span class="op">.*</span> CCP2Adjuster</span>
-<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>    );</span>
-<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>    NewSigmaDeno2 <span class="op">=</span> (</span>
-<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sum</span>(<span class="fu">exp</span>.(NewSigmaSeed2), dims <span class="op">=</span> <span class="fl">2</span>) <span class="op">.-</span> <span class="fl">1</span></span>
-<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>    );</span>
-<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>    NewSigma2 <span class="op">=</span> <span class="fu">exp</span>.(NewSigmaSeed2) <span class="op">./</span> NewSigmaDeno2;</span>
-<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>    CCP2UpdatedMat <span class="op">=</span> NewSigma2 <span class="op">.*</span> CCP2Adjuster;</span>
-<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>    CCP2Updated <span class="op">=</span> CCP2UpdatedMat[<span class="op">:</span>, <span class="fl">2</span>];</span>
-<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>    fPsigma <span class="op">=</span> <span class="fu">fP</span>(TransitionMat, CCP1Updated, CCP2Updated);</span>
-<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a>    pi1Psigma <span class="op">=</span> <span class="fu">pi1PsigmaGen</span>(pi1, CCP2UpdatedMat);</span>
-<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a>    pi2Psigma <span class="op">=</span> <span class="fu">pi2PsigmaGen</span>(pi2, CCP1UpdatedMat);</span>
-<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a>    eP1 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP1LogTransform</span>(CCP1Updated);</span>
-<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a>    eP2 <span class="op">=</span> <span class="cn">eulergamma</span> <span class="op">.-</span> <span class="fu">CCP2LogTransform</span>(CCP2Updated);</span>
-<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a>    ExanteV1Updated <span class="op">=</span> (</span>
-<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a>        (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
-<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a>        ((CCP1UpdatedMat <span class="op">.*</span> (pi1Psigma <span class="op">+</span> eP1)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
-<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a>    );</span>
-<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-48"><a href="#cb24-48" aria-hidden="true" tabindex="-1"></a>    ExanteV2Updated <span class="op">=</span> (</span>
-<span id="cb24-49"><a href="#cb24-49" aria-hidden="true" tabindex="-1"></a>        (<span class="fu">diagm</span>(<span class="fu">ones</span>(<span class="fl">8</span>)) <span class="op">-</span> beta <span class="op">.*</span> fPsigma) <span class="op">\</span> </span>
-<span id="cb24-50"><a href="#cb24-50" aria-hidden="true" tabindex="-1"></a>        ((CCP2UpdatedMat <span class="op">.*</span> (pi2Psigma <span class="op">+</span> eP2)) <span class="op">*</span> <span class="fu">ones</span>(<span class="fl">3</span>))</span>
-<span id="cb24-51"><a href="#cb24-51" aria-hidden="true" tabindex="-1"></a>    );</span>
-<span id="cb24-52"><a href="#cb24-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-53"><a href="#cb24-53" aria-hidden="true" tabindex="-1"></a>    DiffExanteV <span class="op">=</span> <span class="fu">sum</span>((ExanteV1Updated <span class="op">-</span> ExanteV1)<span class="op">.^</span><span class="fl">2</span> <span class="op">+</span> (ExanteV2Updated <span class="op">-</span> ExanteV2)<span class="op">.^</span><span class="fl">2</span>);</span>
-<span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>  0.060610 seconds (205.19 k allocations: 13.970 MiB, 98.72% compilation time)</code></pre>
-</div>
-</div>
-<div class="cell" data-execution_count="22">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>CCP1UpdatedMat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="23">
-<pre><code>8×3 Matrix{Float64}:
- 0.0       0.683563  0.316437
- 0.0       0.712662  0.287338
- 0.184349  0.815651  0.0
- 0.206181  0.793819  0.0
- 0.0       0.708067  0.291933
- 0.0       0.735965  0.264035
- 0.202453  0.797547  0.0
- 0.225863  0.774137  0.0</code></pre>
-</div>
-</div>
-<div class="cell" data-execution_count="23">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>CCP2UpdatedMat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="24">
-<pre><code>8×3 Matrix{Float64}:
- 0.0       0.714725  0.285275
- 0.207591  0.792409  0.0
- 0.0       0.741697  0.258303
- 0.231269  0.768731  0.0
- 0.0       0.737685  0.262315
- 0.227294  0.772706  0.0
- 0.0       0.76353   0.23647
- 0.2527    0.7473    0.0</code></pre>
-</div>
-</div>
-</section>
-<section id="step-6" class="level2" data-number="10.4">
-<h2 data-number="10.4" class="anchored" data-anchor-id="step-6"><span class="header-section-number">10.4</span> Step 6</h2>
-<div class="cell" data-execution_count="24">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>NumSimMarkets <span class="op">=</span> <span class="fl">500</span>;</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>NumSimPeriods <span class="op">=</span> <span class="fl">50</span>;</span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>NumSimFirms <span class="op">=</span> <span class="fl">2</span>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="25">
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>InitialState <span class="op">=</span> <span class="fu">sample</span>(<span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, NumSimMarkets);</span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>RandomNumbers <span class="op">=</span> <span class="fu">reshape</span>(</span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rand</span>(NumSimMarkets <span class="op">*</span> NumSimPeriods <span class="op">*</span> (NumSimFirms <span class="op">+</span> <span class="fl">1</span>)),</span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>    (NumSimMarkets, NumSimPeriods, NumSimFirms <span class="op">+</span> <span class="fl">1</span>)</span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="26">
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>FakeData <span class="op">=</span> <span class="fu">zeros</span>(NumSimMarkets <span class="op">*</span> NumSimPeriods, <span class="fl">8</span>);</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>NumSimMarkets, t <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>NumSimPeriods</span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">1</span>] <span class="op">=</span> m;</span>
-<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>    FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">2</span>] <span class="op">=</span> t;</span>
-<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> t <span class="op">==</span> <span class="fl">1</span></span>
-<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> <span class="fl">1</span>, <span class="fl">3</span>] <span class="op">=</span> InitialState[m];</span>
-<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> <span class="fl">1</span>, <span class="fl">4</span>] <span class="op">=</span> (</span>
-<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a>            (InitialState[m] <span class="op">&gt;=</span> <span class="fl">1</span>) <span class="op">&amp;</span> (InitialState[m] <span class="op">&lt;=</span> <span class="fl">4</span>) ? <span class="fl">1</span> <span class="op">:</span></span>
-<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>            <span class="fl">2</span></span>
-<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a>        );</span>
-<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
-<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a>        sprev <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">3</span>]</span>
-<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a>        a1prev <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">7</span>]</span>
-<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a>        a2prev <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">8</span>]</span>
-<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (sprev <span class="op">&gt;=</span> <span class="fl">1</span>) <span class="op">&amp;</span> (sprev <span class="op">&lt;=</span> <span class="fl">4</span>)</span>
-<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span>] <span class="op">=</span> (</span>
-<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a>                (RandomNumbers[m, t, <span class="fl">3</span>] <span class="op">&lt;</span> TransitionMat[<span class="fl">1</span>, <span class="fl">1</span>]) ? <span class="fl">1</span> <span class="op">:</span></span>
-<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a>                <span class="fl">2</span></span>
-<span id="cb32-27"><a href="#cb32-27" aria-hidden="true" tabindex="-1"></a>            );</span>
-<span id="cb32-28"><a href="#cb32-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
-<span id="cb32-29"><a href="#cb32-29" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span>] <span class="op">=</span> (</span>
-<span id="cb32-30"><a href="#cb32-30" aria-hidden="true" tabindex="-1"></a>                (RandomNumbers[m, t, <span class="fl">3</span>] <span class="op">&lt;</span> TransitionMat[<span class="fl">2</span>, <span class="fl">2</span>]) ? <span class="fl">2</span> <span class="op">:</span></span>
-<span id="cb32-31"><a href="#cb32-31" aria-hidden="true" tabindex="-1"></a>                <span class="fl">1</span></span>
-<span id="cb32-32"><a href="#cb32-32" aria-hidden="true" tabindex="-1"></a>            );</span>
-<span id="cb32-33"><a href="#cb32-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-34"><a href="#cb32-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-35"><a href="#cb32-35" aria-hidden="true" tabindex="-1"></a>        snow <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span>];</span>
-<span id="cb32-36"><a href="#cb32-36" aria-hidden="true" tabindex="-1"></a>        n1t <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">5</span>] <span class="op">+</span> a1prev;</span>
-<span id="cb32-37"><a href="#cb32-37" aria-hidden="true" tabindex="-1"></a>        n2t <span class="op">=</span> FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t <span class="op">-</span> <span class="fl">1</span>, <span class="fl">6</span>] <span class="op">+</span> a2prev;</span>
-<span id="cb32-38"><a href="#cb32-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-39"><a href="#cb32-39" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">3</span>] <span class="op">=</span> (</span>
-<span id="cb32-40"><a href="#cb32-40" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">1</span> <span class="op">:</span></span>
-<span id="cb32-41"><a href="#cb32-41" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">2</span> <span class="op">:</span></span>
-<span id="cb32-42"><a href="#cb32-42" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">3</span> <span class="op">:</span></span>
-<span id="cb32-43"><a href="#cb32-43" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">4</span> <span class="op">:</span></span>
-<span id="cb32-44"><a href="#cb32-44" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">5</span> <span class="op">:</span></span>
-<span id="cb32-45"><a href="#cb32-45" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">0</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">6</span> <span class="op">:</span></span>
-<span id="cb32-46"><a href="#cb32-46" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">0</span>) ? <span class="fl">7</span> <span class="op">:</span></span>
-<span id="cb32-47"><a href="#cb32-47" aria-hidden="true" tabindex="-1"></a>            (snow <span class="op">==</span> <span class="fl">2</span>) <span class="op">&amp;</span> (n1t <span class="op">==</span> <span class="fl">1</span>) <span class="op">&amp;</span> (n2t <span class="op">==</span> <span class="fl">1</span>) ? <span class="fl">8</span> <span class="op">:</span></span>
-<span id="cb32-48"><a href="#cb32-48" aria-hidden="true" tabindex="-1"></a>            <span class="fl">0</span></span>
-<span id="cb32-49"><a href="#cb32-49" aria-hidden="true" tabindex="-1"></a>        );</span>
-<span id="cb32-50"><a href="#cb32-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-51"><a href="#cb32-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb32-52"><a href="#cb32-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-53"><a href="#cb32-53" aria-hidden="true" tabindex="-1"></a>    s <span class="op">=</span> <span class="fu">Int</span>(FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">3</span>]);</span>
-<span id="cb32-54"><a href="#cb32-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-55"><a href="#cb32-55" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> s <span class="op">==</span> <span class="fl">1</span></span>
-<span id="cb32-56"><a href="#cb32-56" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>];</span>
-<span id="cb32-57"><a href="#cb32-57" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-58"><a href="#cb32-58" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-59"><a href="#cb32-59" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-60"><a href="#cb32-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-61"><a href="#cb32-61" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-62"><a href="#cb32-62" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-63"><a href="#cb32-63" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">2</span></span>
-<span id="cb32-64"><a href="#cb32-64" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>];</span>
-<span id="cb32-65"><a href="#cb32-65" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-66"><a href="#cb32-66" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-67"><a href="#cb32-67" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-68"><a href="#cb32-68" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-69"><a href="#cb32-69" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-70"><a href="#cb32-70" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-71"><a href="#cb32-71" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">3</span></span>
-<span id="cb32-72"><a href="#cb32-72" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>];</span>
-<span id="cb32-73"><a href="#cb32-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-74"><a href="#cb32-74" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-75"><a href="#cb32-75" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-76"><a href="#cb32-76" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-77"><a href="#cb32-77" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-78"><a href="#cb32-78" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-79"><a href="#cb32-79" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">4</span></span>
-<span id="cb32-80"><a href="#cb32-80" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span>];</span>
-<span id="cb32-81"><a href="#cb32-81" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-82"><a href="#cb32-82" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-83"><a href="#cb32-83" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-84"><a href="#cb32-84" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-85"><a href="#cb32-85" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-86"><a href="#cb32-86" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-87"><a href="#cb32-87" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">5</span></span>
-<span id="cb32-88"><a href="#cb32-88" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span>];</span>
-<span id="cb32-89"><a href="#cb32-89" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-90"><a href="#cb32-90" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-91"><a href="#cb32-91" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-92"><a href="#cb32-92" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-93"><a href="#cb32-93" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-94"><a href="#cb32-94" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-95"><a href="#cb32-95" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">6</span></span>
-<span id="cb32-96"><a href="#cb32-96" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">1</span>];</span>
-<span id="cb32-97"><a href="#cb32-97" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-98"><a href="#cb32-98" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-99"><a href="#cb32-99" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-100"><a href="#cb32-100" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-101"><a href="#cb32-101" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-102"><a href="#cb32-102" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-103"><a href="#cb32-103" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">7</span></span>
-<span id="cb32-104"><a href="#cb32-104" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">0</span>];</span>
-<span id="cb32-105"><a href="#cb32-105" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-106"><a href="#cb32-106" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-107"><a href="#cb32-107" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-108"><a href="#cb32-108" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-109"><a href="#cb32-109" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="fl">1</span>;</span>
-<span id="cb32-110"><a href="#cb32-110" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-111"><a href="#cb32-111" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elseif</span> s <span class="op">==</span> <span class="fl">8</span></span>
-<span id="cb32-112"><a href="#cb32-112" aria-hidden="true" tabindex="-1"></a>        FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span>] <span class="op">.=</span> [<span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">1</span>];</span>
-<span id="cb32-113"><a href="#cb32-113" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">1</span>] <span class="op">&gt;</span> CCP1UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-114"><a href="#cb32-114" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">7</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-115"><a href="#cb32-115" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-116"><a href="#cb32-116" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (RandomNumbers[m, t, <span class="fl">2</span>] <span class="op">&gt;</span> CCP2UpdatedMat[s, <span class="fl">2</span>])</span>
-<span id="cb32-117"><a href="#cb32-117" aria-hidden="true" tabindex="-1"></a>            FakeData[(m <span class="op">-</span> <span class="fl">1</span>) <span class="op">*</span> NumSimPeriods <span class="op">+</span> t, <span class="fl">8</span>] <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>;</span>
-<span id="cb32-118"><a href="#cb32-118" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb32-119"><a href="#cb32-119" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb32-120"><a href="#cb32-120" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell" data-execution_count="27">
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@save</span> <span class="st">"tmp/dynamic_game/data_workspace.jld2"</span> FakeData CCP1UpdatedMat CCP2UpdatedMat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">jldsave</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"tmp/dynamic_game/data_workspace.jld2"</span> ;</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    FakeData, CCP1Mat, CCP2Mat, </span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    exanteV1, exanteV2, global_param</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->

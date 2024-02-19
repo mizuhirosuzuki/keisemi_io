@@ -11,18 +11,19 @@ jupyter: julia-1.9
 using CSV
 using DataFrames
 using StringEncodings
-using FixedEffectModels
-using RegressionTables
-using Plots
 using LinearAlgebra
-using Statistics
 using Optim
-using Printf
 using ForwardDiff
-using Random
-using GLM
 using Distributions
 ```
+
+```{julia}
+for file in ["calculateBRObjective.jl"]
+    include("functions/entry_exit/" * file)
+end
+```
+
+## データの読み込み
 
 ```{julia}
 data = CSV.File(
@@ -40,86 +41,57 @@ dataset = combine(
 );
 dataset[!, :Pop] = dataset.Pop / 1e+6;
 dropmissing!(dataset, :);
-M = nrow(dataset)
+numObs = nrow(dataset)
 ```
 
-## 4
+## Bresnahan and Reiss (1991) モデルの推定
 
 ```{julia}
-N_max = 6;
-dataset[dataset.NumMRI .> N_max, :NumMRI] .= N_max;
+hospitalNumCap = 6;
+dataset[dataset.NumMRI .> hospitalNumCap, :NumMRI] .= hospitalNumCap;
 ```
 
 ```{julia}
-function obj(
-        params,
-        dataset,
-        N_max
-    )
+#| echo: false
+#| eval: false
 
-    alpha1 = params[1];
-    alpha2 = -params[2:N_max];
-    alpha = vcat(alpha1, alpha2);
-    gamma = params[N_max + 1];
-    
-    NumMRI = dataset.NumMRI;
-    M = nrow(dataset);
-    pop = dataset.Pop .* ones((1, N_max));
-    
-    V = LowerTriangular(ones(N_max) .* alpha');
-        
-    VV = (V * ones(N_max, M))';
-    
-    F = gamma .* ones((M, N_max));
-    
-    profit = pop .* VV .- F;
-    
-    phi = cdf.(Normal(0, 1), profit);
-    
-    mat = hcat(ones(M) .- phi[:, 1], phi[:, 1:(N_max - 1)] .- phi[:, 2:N_max], phi[:, N_max]);
-    
-    ml = log.(reduce(.+, [(dataset.NumMRI .== i) .* mat[:, (i + 1)] for i = 0:N_max]));
-    
-    return - sum(ml) / M
-    
-end
+@time calculateBRObjective(ones(hospitalNumCap + 1), dataset, hospitalNumCap)
 ```
 
 ```{julia}
 obj_for_Optim = TwiceDifferentiable(
-    x -> obj(x, dataset, N_max),
-    ones(N_max + 1);
+    x -> calculateBRObjective(x, dataset, hospitalNumCap),
+    ones(hospitalNumCap + 1);
     autodiff = :forward
 );
 @time optim_res = optimize(
     obj_for_Optim,
-    zeros(N_max + 1),
-    repeat([Inf], N_max + 1),
-    ones(N_max + 1),
-#     Optim.Options(show_trace = true)
+    zeros(hospitalNumCap + 1),
+    repeat([Inf], hospitalNumCap + 1),
+    ones(hospitalNumCap + 1),
+    Optim.Options(show_trace = false)
 );
 ```
 
 ```{julia}
-se = sqrt.(diag(inv(obj_for_Optim.H) ./ M));
+se = sqrt.(diag(inv(obj_for_Optim.H) ./ numObs));
 DataFrame(
     estimates = optim_res.minimizer,
     se = se
 )
-
 ```
 
-## 5
+## 推定値に基づくエクササイズ
 
 ```{julia}
-alpha_est = optim_res.minimizer[1:N_max];
-gamma_est = optim_res.minimizer[N_max + 1];
+alpha_est = optim_res.minimizer[1:hospitalNumCap];
+gamma_est = optim_res.minimizer[hospitalNumCap + 1];
 
-EntryThreshold = zeros(Int64, (N_max, 2));
+EntryThreshold = zeros(Int64, (hospitalNumCap, 2));
 
 deno = alpha_est[1];
 EntryThreshold[1,:] .= round(gamma_est / deno .* 1e+6);
-for i = 2:N_max
+for i = 2:hospitalNumCap
     deno = deno - alpha_est[i];
     EntryThreshold[i, :] = round.([gamma_est / deno .* 1e+6, gamma_est / deno .* 1e+6 / i]);
 end

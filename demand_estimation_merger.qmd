@@ -22,64 +22,19 @@ using ForwardDiff
 using Random
 using GLM
 using Serialization
+using Roots
 ```
 
 ```{julia}
-data = CSV.read("data/demand_estimation_merger/chap3_data.csv", DataFrame);
-first(data, 5)
-```
-
-## Data cleaning
-
-```{julia}
-data[!, :Foreign_d] = data[:, :Type] .== "Foreign";
-data[!, :FuelRegular_d] = data[:, :FuelType] .== "レギュラー";
-data[!, :capacity_d] = data[:, :capacity] .> 4;
-transform!(data, [:year => ByRow(isequal(v))=> Symbol("year_" * string(v)) for v in unique(data.year)]);
-select!(data, Not(:year_2006));
-```
-
-## 4.2
-
-```{julia}
-sort!(data, [:year, :Maker, :price]);
-N = nrow(data);
-T = length(unique(data.year));
-X1 = hcat(
-    repeat([1], N), 
-    Matrix(data[:, [:price, :FuelEfficiency, :hppw, :size, :capacity_d, :FuelRegular_d, :Foreign_d]]),
-    Matrix(data[:, r"^year_"])    
-    );
-X2 = Matrix(data[:, [:price]]);
-Z = hcat(
-    repeat([1], N),
-    Matrix(data[:, [:FuelEfficiency, :hppw, :size, :capacity_d, :FuelRegular_d, :Foreign_d]]),
-    Matrix(data[:, r"^year_"]),
-    Matrix(data[:, r"^iv_GH.*(?<!nest)$"])
-    );
-Random.seed!(42);
-Nsim = 1000;
-
-draw_vec = reduce(hcat, [randn(size(X2, 2)) for j =1:Nsim]);
-
-marketindex = data.year;
-uniquemarketindex = sort(unique(data.year));
-```
-
-```{julia}
-temp1 = reduce(hcat, [uniquemarketindex for j = 1:N])';
-temp2 = reduce(hcat, [data.year for j = 1:T]);
-mkt_denom_d = (temp1 .== temp2);
-
 mutable struct datalist_struct
     X1::Array{Float64,2};
     X2::Array{Float64,2};
     Z::Array{Float64,2};
     ShareVec::Vector{Float64};
-    marketindex::Vector{Int64};
+    marketIndex::Vector{Int64};
     logitshare::Vector{Float64};
-    draw_vec::Array{Float64,2};
-    mkt_denom_d::BitMatrix
+    randomDrawMat::Array{Float64,2};
+    marketIndexMat::BitMatrix
 end
 
 mutable struct parameter_struct
@@ -87,162 +42,157 @@ mutable struct parameter_struct
     T::Int;
     N::Int;
 end
-datalist = datalist_struct(X1, X2, Z, data.share, marketindex, data.logit_share, draw_vec, mkt_denom_d);
+```
+
+
+```{julia}
+for file in readdir("functions/demand_estimation")
+    include("functions/demand_estimation/" * file)
+end
+```
+
+## データの読み込み
+
+```{julia}
+data = CSV.read("data/demand_estimation_merger/chap3_data.csv", DataFrame);
+first(data, 5)
+```
+
+## データクリーニング
+
+```{julia}
+data[!, :Foreign_d] = data[:, :Type] .== "Foreign";
+data[!, :FuelRegular_d] = data[:, :FuelType] .== "レギュラー";
+data[!, :capacity_d] = data[:, :capacity] .> 4;
+transform!(
+    data, 
+    [
+        :year => ByRow(isequal(v))=> Symbol("year_" * string(v)) 
+        for v in unique(data.year)
+        ]
+    );
+select!(data, Not(:year_2006));
+```
+
+## ランダム係数ロジットモデルの推定
+
+```{julia}
+sort!(data, [:year, :Maker, :price]);
+N = nrow(data);
+T = length(unique(data.year));
+X1 = hcat(
+    ones(N),
+    Matrix(
+        data[:,[
+            :price, :FuelEfficiency, :hppw, :size, 
+            :capacity_d, :FuelRegular_d, :Foreign_d
+            ]]
+        ),
+    Matrix(data[:, r"^year_"])    
+    );
+X2 = Matrix(data[:, [:price]]);
+Z = hcat(
+    ones(N),
+    Matrix(
+        data[:, [
+            :FuelEfficiency, :hppw, :size, 
+            :capacity_d, :FuelRegular_d, :Foreign_d
+            ]]
+        ),
+    Matrix(data[:, r"^year_"]),
+    Matrix(data[:, r"^iv_GH.*(?<!nest)$"])
+    );
+
+Random.seed!(42);
+Nsim = 1000;
+
+randomDrawMat = randn(size(X2)[2], Nsim);
+
+```
+
+```{julia}
+marketIndex = data.year;
+uniqueMarketIndex = sort(unique(data.year));
+
+marketIndexMat = reduce(
+    hcat, 
+    [marketIndex .== market for market in uniqueMarketIndex]
+    );
+
+datalist = datalist_struct(
+    X1, 
+    X2, 
+    Z, 
+    data.share, 
+    marketIndex, 
+    data.logit_share, 
+    randomDrawMat, 
+    marketIndexMat
+    );
 parameter = parameter_struct(Nsim, T, N);
 ```
 
-## 4.3
-
 ```{julia}
-function f_mktshare(
-        theta2,
-        datalist::datalist_struct,
-        parameter::parameter_struct,
-#         delta::Vector{Float64}
-        delta
-    )
-        
-    mu = datalist.X2 * Diagonal(theta2) * datalist.draw_vec;
-    
-    delta_mu = delta .* ones((1, parameter.Nsim)) .+ mu;
-    exp_delta_mu = exp.(delta_mu .- maximum(delta_mu));
-    denom_outside = exp.(-maximum(delta_mu));
-    
-    denom_temp = (exp_delta_mu' * datalist.mkt_denom_d)' .+ denom_outside;
-    denom = datalist.mkt_denom_d * denom_temp;
-    
-    s_jt_i = exp_delta_mu ./ denom;
-    s_jt = vec(mean(s_jt_i, dims = 2));
-    
-    return s_jt
-    
-end
+#| echo: false
+#| eval: false
+@time calculateMarketShare([0.01], datalist, data.logit_share);
 ```
 
 ```{julia}
 #| echo: false
 #| eval: false
-@time f_mktshare([0.01], datalist, parameter, data.logit_share);
+@time calculateMeanUtil([0.01], datalist, data.logit_share);
 ```
 
 ```{julia}
-function f_contraction(
-        theta2,
-        datalist::datalist_struct,
-        parameter::parameter_struct,
-        delta_ini::Vector{Float64}
-    )
-    
-    tol = 1e-11;
-    norm = 1e+10
-
-    delta_old = delta_ini;
-    exp_delta_old = exp.(delta_old);
-    
-    iter = 0;
-        
-    while ((norm > tol) & (iter < 1000))
-        
-        # print(iter, "\n")
-        
-        pred_mkt_share = f_mktshare(theta2, datalist, parameter, delta_old);
-        
-        exp_delta = exp_delta_old .* datalist.ShareVec ./ pred_mkt_share;
-        
-        norm = maximum(abs.(exp_delta .- exp_delta_old));
-        
-        exp_delta_old = exp_delta;
-        delta_old = log.(exp_delta_old);
-        iter += 1;
-        
-    end
-    
-#     print(iter, "\n")
-    
-    return delta_old;
-    
-end
+initial_x = [0.7];
+delta_ini = calculateMeanUtil(initial_x, datalist, datalist.logitshare);
 ```
 
 ```{julia}
-#| echo: false
 #| eval: false
-@time f_contraction([0.01], datalist, parameter, data.logit_share);
-```
-
-```{julia}
-function f_GMMobj(
-        theta2,
-        parameter::parameter_struct,
-        datalist::datalist_struct,
-        delta_ini::Vector{Float64}
-    )
-    
-#     delta_ini = delta_global;
-#     delta_ini = datalist.logitshare;
-    delta = f_contraction(theta2, datalist, parameter, delta_ini);
-#     global delta_global = delta
-    
-#     if (datalist.weight_mat_option == "2SLS") 
-        W = inv(datalist.Z' * datalist.Z);
-#     elseif (datalist.weight_mat_option == "Ident")
-#         W = I(size(datalist.Z, 2));
-#     end
-    
-    beta_hat = (datalist.X1' * datalist.Z * W * datalist.Z' * datalist.X1) \ (datalist.X1' * datalist.Z * W * datalist.Z' * delta);
-    
-    Xi = delta - datalist.X1 * beta_hat;
-    
-    output = Xi' * datalist.Z * W * datalist.Z' * Xi
-        
-    return output
-    
-end    
-```    
-
-```{julia}
-initial_x = [0.1];
-delta_ini = f_contraction(initial_x, datalist, parameter, datalist.logitshare);
-objFunc_for_Optim = TwiceDifferentiable(
-    x -> f_GMMobj(x, parameter, datalist, delta_ini),
+objFunc_for_Optim = OnceDifferentiable(
+    x -> calculateGMMObjective(x, datalist, delta_ini),
     initial_x;
     autodiff = :forward
     );
-```
-
-```{julia}
-#| eval: false
-@time gmm_res = optimize(
+@time resultGMM = optimize(
     objFunc_for_Optim,
-#     x -> f_GMMobj(x, parameter, datalist, delta_ini),
     [0.0],
     [Inf],
     initial_x,
-    Optim.Options(show_trace = true)
+    Fminbox(),
+    Optim.Options(show_trace = false)
 )
 ```
 
 ```{julia}
 #| echo: false
 #| eval: false
-serialize("tmp/demand_estimation_merger/gmm_res.ser", gmm_res)
+serialize("tmp/demand_estimation_merger/resultGMM.ser", resultGMM)
 ```
 
 ```{julia}
 #| echo: false
-gmm_res = deserialize("tmp/demand_estimation_merger/gmm_res.ser");
+resultGMM = deserialize("tmp/demand_estimation_merger/resultGMM.ser");
 ```
 
 ```{julia}
 W = inv(datalist.Z' * datalist.Z);    
-delta = f_contraction(gmm_res.minimizer, datalist, parameter, delta_ini);
-beta_hat = (datalist.X1' * datalist.Z * W * datalist.Z' * datalist.X1) \ (datalist.X1' * datalist.Z * W * datalist.Z' * delta);
+delta = calculateMeanUtil(resultGMM.minimizer, datalist, delta_ini);
+beta_hat = (
+    (datalist.X1' * datalist.Z * W * datalist.Z' * datalist.X1) \ 
+    (datalist.X1' * datalist.Z * W * datalist.Z' * delta)
+);
 ```
 
 ```{julia}
 Xi = delta - X1 * beta_hat;
 Omega_hat = reduce(+, Z[i,:] * Z[i,:]' .* Xi[i]^2 ./ N for i = 1:N);
-Ddelta = ForwardDiff.jacobian(x -> delta_ini = f_contraction(x, datalist, parameter, delta), gmm_res.minimizer);
+Ddelta = ForwardDiff.jacobian(
+    x -> delta_ini = calculateMeanUtil(x, datalist, delta), 
+    resultGMM.minimizer
+    );
 G = Z' * hcat(- X1, Ddelta) ./ N;
 AsyVarMat = (G' * W * G) \ G' * W * Omega_hat * W * G * inv(G' * W * G);
 Ase = sqrt.(diag(AsyVarMat) ./ N);
@@ -255,68 +205,58 @@ DataFrame(
         "year_2013", "year_2014", "year_2015", "year_2016", 
         "random_price"
         ],
-    Est = vcat(beta_hat, gmm_res.minimizer),
+    Est = vcat(beta_hat, resultGMM.minimizer),
     se = Ase
 )
 ```
 
 ```{julia}
-mu = X2 * Diagonal(gmm_res.minimizer) * draw_vec;
-delta_mu = delta .+ mu;
-exp_delta_mu = exp.(delta_mu);
-denom_outside = exp.(0.0);
-denom_temp = (exp_delta_mu' * mkt_denom_d)' .+ denom_outside;
-denom = mkt_denom_d * denom_temp;
 
-s_jt_i = exp_delta_mu ./ denom;
-draw_for_price = draw_vec[1,:];
-alpha_i = beta_hat[2] .+ gmm_res.minimizer[1] .* draw_for_price;
-year = 2016
-J_t = sum(data.year .== year);
-data_t = data[data.year .== year, :];
+market2016Index = data.year .== 2016;
+data_2016 = data[market2016Index, :];
 
-ag_model_s_i = s_jt_i[data.year .== year, :]
-ag_model_s = mean(ag_model_s_i, dims = 2);
-price_t = data.price[data.year .== year];
+@time elasmat_2016 = calculateElasticity(
+    data_2016.price,
+    X2[market2016Index, :],
+    beta_hat,
+    resultGMM.minimizer,
+    randomDrawMat,
+    delta[market2016Index]
+);
 
-elasmat_t = zeros((J_t, J_t));
-
-for k in 1:J_t, j in 1:J_t
-    if (k != j)
-        elasmat_t[k, j] = (-1.0) .* price_t[k] ./ ag_model_s[j] * mean(alpha_i .* ag_model_s_i[j, :] .* ag_model_s_i[k, :])
-    elseif (k == j)
-        elasmat_t[k, j] = price_t[j] ./ ag_model_s[j] * mean(alpha_i .* ag_model_s_i[j, :] .* (1.0 .- ag_model_s_i[j, :]))
-    end
-end
 ```
 
-## 5
+## 限界費用の推定
 
 ```{julia}
-Pricevec_t = data_t.price;
-Sharevec_t = data_t.share;
+Pricevec_2016 = data_2016.price;
+Sharevec_2016 = data_2016.share;
 
-Ownership_t = data_t.Maker .== permutedims(data_t.Maker);
-Derivative_t = - elasmat_t .* Sharevec_t' ./ Pricevec_t;
-Delta_t = Derivative_t .* Ownership_t;
-Marginal_Cost_t = Pricevec_t - (Delta_t \ Sharevec_t);
+Xi_2016 = Xi[data.year .== 2016];
+Ownership_2016 = data_2016.Maker .== permutedims(data_2016.Maker);
+Derivative_2016 = - elasmat_2016 .* Sharevec_2016' ./ Pricevec_2016;
+Delta_2016 = Derivative_2016 .* Ownership_2016;
+Marginal_Cost_2016 = Pricevec_2016 - (Delta_2016 \ Sharevec_2016);
 pred_mc_df = DataFrame(
-    Maker = data_t.Maker, 
-    Name = data_t.Name, 
-    Price = data_t.price,
-    MC = Vector{Float64}(Marginal_Cost_t),
-    Margin = (data_t.price .- Marginal_Cost_t) ./ data_t.price
-)
+    Maker = data_2016.Maker, 
+    Name = data_2016.Name, 
+    Price = data_2016.price,
+    MC = Marginal_Cost_2016,
+    Margin = (data_2016.price .- Marginal_Cost_2016) ./ data_2016.price
+);
+first(pred_mc_df, 10)
 ```
+
 
 ```{julia}
 histogram(pred_mc_df.Margin, bins = 40, legend = false)
 ```
 
-## 6
+## 合併シミュレーション
+
+### データの下準備
 
 ```{julia}
-data_2016 = data[data.year .== 2016, :];
 data_2016 = leftjoin(data_2016, pred_mc_df, on = ["Maker", "Name"]);
 dropmissing!(data_2016);
 
@@ -329,238 +269,117 @@ data_2016[!, :MakerNippyoA] = data_2016[:, :Maker];
 data_2016[!, :MakerNippyoB] = data_2016[:, :Maker];
 data_2016[in(["Nippyo", "BrandA"]).(data_2016[:, :Maker]), :MakerNippyoA] .= "NippyoA";
 data_2016[in(["Nippyo", "BrandB"]).(data_2016[:, :Maker]), :MakerNippyoB] .= "NippyoB";
-J = nrow(data_2016);
 
 Ownership_true = data_2016.Maker .== permutedims(data_2016.Maker);
 Ownership_NippyoA = data_2016.MakerNippyoA .== permutedims(data_2016.MakerNippyoA);
 Ownership_NippyoB = data_2016.MakerNippyoB .== permutedims(data_2016.MakerNippyoB);
 ```
 
-## 6.4
-
 ```{julia}
 mc = data_2016.MC;
 datalist_2016 = datalist_struct(
-    X1[data.year .== 2016, :],
-    X2[data.year .== 2016, :],
-    Z[data.year .== 2016, :],
+    X1[market2016Index, :],
+    X2[market2016Index, :],
+    Z[market2016Index, :],
     data_2016.share,
     data_2016.year,
     data_2016.logit_share,
-    datalist.draw_vec,
-    datalist.mkt_denom_d[data.year .== 2016, :]
+    datalist.randomDrawMat,
+    datalist.marketIndexMat[market2016Index, :]
 );
 ```
 
 ```{julia}
-function f_update(
-        datalist::datalist_struct,
-        p_old::Vector{Float64},
-        Ownership::BitMatrix,
-        parameter::parameter_struct,
-        theta1::Vector{Float64},
-        theta2::Vector{Float64},
-        mc::Vector{Float64},
-        Xi::Vector{Float64}
+#| echo: false
+#| eval: false
+@time updatePrice(
+    datalist_2016, 
+    ones(169), 
+    Ownership_true, 
+    beta_hat, 
+    resultGMM.minimizer, 
+    mc, 
+    Xi_2016
     )
-    
-    X1_new = datalist.X1[:, :];
-    X2_new = reshape(p_old, (:, 1));
-    X1_new[:, 2] .= p_old;
-    
-    delta = (X1_new * theta1) .+ Xi;
-    datalist_new = datalist_struct(
-        X1_new, X2_new, datalist.Z, datalist.ShareVec, datalist.marketindex, 
-        datalist.logitshare, datalist.draw_vec, datalist.mkt_denom_d
-        );
-    Sharevec = f_mktshare(
-        theta2, datalist_new, parameter, delta
-    );
-    
-    # elasticity
-    mu = datalist_new.X2 * Diagonal(theta2) * datalist_new.draw_vec;
-    delta_mu = delta .+ mu;
-    exp_delta_mu = exp.(delta_mu);
-    denom_outside = exp.(0.0);
-    denom_temp = (exp_delta_mu' * datalist_new.mkt_denom_d)' .+ denom_outside;
-    denom = datalist_new.mkt_denom_d * denom_temp;
-
-    s_jt_i = exp_delta_mu ./ denom;
-    draw_for_price = datalist_new.draw_vec[1,:];
-    alpha_i = theta1[2] .+ theta2[1] .* draw_for_price;
-    
-    J = size(X1_new, 1);
-    
-    ag_model_s = mean(s_jt_i, dims = 2);
-    elasmat = zeros((J, J));
-
-    for k in 1:J, j in 1:J
-        if (k != j)
-            elasmat[k, j] = (-1.0) .* p_old[k] ./ ag_model_s[j] * mean(alpha_i .* s_jt_i[j, :] .* s_jt_i[k, :])
-        elseif (k == j)
-            elasmat[k, j] = p_old[j] ./ ag_model_s[j] * mean(alpha_i .* s_jt_i[j, :] .* (1.0 .- s_jt_i[j, :]))
-        end
-    end
-
-    Derivative = - elasmat .* Sharevec' ./ p_old;
-    Delta = Derivative .* Ownership;
-    p_new = mc .+ (Delta \ Sharevec)
-
-    return p_new
-    
-end
 ```
 
 ```{julia}
 #| echo: false
 #| eval: false
-@time f_update(datalist_2016, ones(169), Ownership_true, parameter, beta_hat, gmm_res.minimizer, mc, Xi[data.year .== 2016])
-```
-
-```{julia}
-function f_eqprice(
-        datalist::datalist_struct,
-        p_ini::Vector{Float64},
-        Ownership::BitMatrix,
-        parameter::parameter_struct,
-        theta1::Vector{Float64},
-        theta2::Vector{Float64},
-        mc::Vector{Float64},
-        Xi::Vector{Float64}
-    )
-    
-    lambda = 1e-6;
-    p_old = p_ini;
-    distance = 10000;
-    
-    local p_new
-    
-    while (distance > lambda)
-        p_new = f_update(datalist, p_old, Ownership, parameter, theta1, theta2, mc, Xi);
-        distance = maximum(abs.(p_new - p_old));
-        p_old = p_new[:];
-        # print(distance, "\n")
-    end
-    
-    return p_new
-end
-```
-
-```{julia}
-#| echo: false
-#| eval: false
-f_eqprice(
+@time calculateEquilibriumPrice(
     datalist_2016,
     ones(169),
     Ownership_true,
-    parameter,
     beta_hat,
-    gmm_res.minimizer,
+    resultGMM.minimizer,
     mc,
-    Xi[data.year .== 2016]
-);
+    Xi_2016
+)
 ```
 
-## 6.5
-
 ```{julia}
-p_ini = data_2016.price;
-p_NippyoA = f_eqprice(
+p_NippyoA = calculateEquilibriumPrice(
     datalist_2016,
-    p_ini,
+    data_2016.price,
     Ownership_NippyoA,
-    parameter,
     beta_hat,
-    gmm_res.minimizer,
+    resultGMM.minimizer,
     mc,
-    Xi[data.year .== 2016]
+    Xi_2016
 );
 
-p_ini = data_2016.price;
-p_NippyoB = f_eqprice(
+p_NippyoB = calculateEquilibriumPrice(
     datalist_2016,
-    p_ini,
+    data_2016.price,
     Ownership_NippyoB,
-    parameter,
     beta_hat,
-    gmm_res.minimizer,
+    resultGMM.minimizer,
     mc,
-    Xi[data.year .== 2016]
+    Xi_2016
 );
 ```
 
-```{julia}
-function f_mktshare_sim(
-        datalist::datalist_struct,
-        p::Vector{Float64},
-        parameter::parameter_struct,
-        theta1::Vector{Float64},
-        theta2::Vector{Float64},
-        Xi::Vector{Float64}
-    )
-    
-    X1_new = datalist.X1[:, :];
-    X2_new = reshape(p[:], (:, 1));
-    X1_new[:, 2] .= p;
-    
-    delta = (X1_new * theta1) .+ Xi;
-    datalist_new = datalist_struct(
-        X1_new, X2_new, datalist.Z, datalist.ShareVec, datalist.marketindex, 
-        datalist.logitshare, datalist.draw_vec, datalist.mkt_denom_d
-        );
-    Sharevec = f_mktshare(
-        theta2, datalist_new, parameter, delta
-    );
-    
-    return(Sharevec)
-    
-end
-```
-
-## 7
-
-## 7.1
+### 合併シミュレーションによる価格・販売台数変化
 
 ```{julia}
 merger_sim_df = DataFrame(
     Maker = data_2016.Maker, 
     Name = data_2016.Name, 
     Price_A = (p_NippyoA .- data_2016.price) ./ data_2016.price .* 100.0,
-    Share_A = (f_mktshare_sim(
+    Share_A = (simulateMarketShare(
                 datalist_2016,
                 p_NippyoA,
-                parameter,
                 beta_hat,
-                gmm_res.minimizer,
-                Xi[data.year .== 2016]
+                resultGMM.minimizer,
+                Xi_2016
             ) .- data_2016.share) ./ data_2016.share .* 100.0,
     Price_B = (p_NippyoB .- data_2016.price) ./ data_2016.price .* 100.0,
-    Share_B = (f_mktshare_sim(
+    Share_B = (simulateMarketShare(
                 datalist_2016,
                 p_NippyoB,
-                parameter,
                 beta_hat,
-                gmm_res.minimizer,
-                Xi[data.year .== 2016]
+                resultGMM.minimizer,
+                Xi_2016
             ) .- data_2016.share) ./ data_2016.share .* 100.0,
 );
 
 merger_sim_df[in(["Nippyo", "BrandA", "BrandB", "BrandC"]).(merger_sim_df.Maker), :]
 ```
 
-## 7.2
+### 合併後に価格が変化しないような限界費用の計算
 
 ```{julia}
-Pricevec = data_2016.price;
-Sharevec = data_2016.share;
-Ownership = data_2016.MakerNippyoA .== permutedims(data_2016.MakerNippyoA);
-Derivative = - elasmat_t .* Sharevec' ./ Pricevec;
-Delta = Derivative .* Ownership;
-mc_NippyoA_pfix = Pricevec - (Delta \ Sharevec);
-Ownership = data_2016.MakerNippyoB .== permutedims(data_2016.MakerNippyoB);
-Derivative = - elasmat_t .* Sharevec' ./ Pricevec;
-Delta = Derivative .* Ownership;
-mc_NippyoB_pfix = Pricevec - (Delta \ Sharevec);
+
+Ownership_2016_A = data_2016.MakerNippyoA .== permutedims(data_2016.MakerNippyoA);
+Derivative_2016_A = - elasmat_2016 .* Sharevec_2016' ./ Pricevec_2016;
+Delta_2016_A = Derivative_2016_A .* Ownership_2016_A;
+mc_NippyoA_pfix = Pricevec_2016 - (Delta_2016_A \ Sharevec_2016);
+
+Ownership_2016_B = data_2016.MakerNippyoB .== permutedims(data_2016.MakerNippyoB);
+Derivative_2016_B = - elasmat_2016 .* Sharevec_2016' ./ Pricevec_2016;
+Delta_2016_B = Derivative_2016_B .* Ownership_2016_B;
+mc_NippyoB_pfix = Pricevec_2016 - (Delta_2016_B \ Sharevec_2016);
+
 mc_sim_df = DataFrame(
     Maker = data_2016.Maker, 
     Name = data_2016.Name, 
@@ -571,80 +390,34 @@ mc_sim_df = DataFrame(
 mc_sim_df[in(["Nippyo", "BrandA", "BrandB", "BrandC"]).(mc_sim_df.Maker), :]
 ```
 
-## 7.4
+### 合併シミュレーションの厚生分析
 
 ```{julia}
-#| echo: false
-#| eval: false
-log.(sum(exp.((X1 * beta_hat + Xi) .+ (X2 * Diagonal(gmm_res.minimizer) * draw_vec)), dims = 1) .+ 1.0) ./ alpha_i
-```
 
-```{julia}
-alpha_i = - (beta_hat[2] .+ gmm_res.minimizer[1] * draw_for_price)
-data_2016.HH[1]
-```
-
-```{julia}
-function f_CS(
-        datalist::datalist_struct,
-        p::Vector{Float64},
-        parameter::parameter_struct,
-        theta1::Vector{Float64},
-        theta2::Vector{Float64},
-        Xi::Vector{Float64},
-        HH::Int64
-    )
-    
-    X1_new = datalist.X1[:, :];
-    X2_new = reshape(p, (:, 1));
-    X1_new[:, 2] .= p;
-    
-    delta = (X1_new * theta1) .+ Xi;
-    
-    # elasticity
-    mu = X2_new * Diagonal(theta2) * datalist.draw_vec;
-    
-    V = delta .+ mu;
-    exp_V = exp.(V);
-    
-    numerator = log.(vec(sum(exp_V, dims = 1)) .+ 1.0);
-    
-    draw_for_price = datalist.draw_vec[1,:];
-    alpha_i = - (theta1[2] .+ theta2[1] .* draw_for_price);
-    
-    CS = mean(numerator ./ alpha_i) .* HH;
-
-    return CS
-    
-end
-
-CS_2016 = f_CS(
+CS_2016 = calculateCS(
     datalist_2016, 
     data_2016.price, 
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
-    Xi[data.year .== 2016], 
+    resultGMM.minimizer, 
+    Xi_2016,
     data_2016.HH[1]
 );
 
-CS_NippyoA = f_CS(
+CS_NippyoA = calculateCS(
     datalist_2016, 
     p_NippyoA, 
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
-    Xi[data.year .== 2016], 
+    resultGMM.minimizer, 
+    Xi_2016,
     data_2016.HH[1]
 );
 
-CS_NippyoB = f_CS(
+CS_NippyoB = calculateCS(
     datalist_2016, 
     p_NippyoB, 
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
-    Xi[data.year .== 2016], 
+    resultGMM.minimizer, 
+    Xi_2016,
     data_2016.HH[1]
 );
 
@@ -653,61 +426,36 @@ CV_NippyoB = CS_NippyoB - CS_2016;
 ```
 
 ```{julia}
-f_profit = function(
-        Maker::AbstractVector, 
-        price::Vector{Float64}, 
-        mc::Vector{Float64}, 
-        share::Vector{Float64}, 
-        HH::Vector{Int64}
-    )
-    
-    dt = DataFrame(
-        Maker = Maker,
-        price = price,
-        mc = mc,
-        share = share,
-        HH = HH,
-        profit = (price - mc) .* share .* HH,
-        revenue = price.* share .* HH
-    )
-    
-    return(combine(groupby(dt, :Maker), [:profit, :revenue] .=> sum .=> [:profit, :revenue]))
-end
-```
-
-```{julia}
-pro_rev_2016 = f_profit(
+pro_rev_2016 = calculateProfit(
     data_2016.Maker,
     data_2016.price,
     mc,
     data_2016.share,
     data_2016.HH
 );
-pro_rev_NippyoA = f_profit(
+pro_rev_NippyoA = calculateProfit(
     data_2016.Maker,
     p_NippyoA,
     mc,
-    f_mktshare_sim(
+    simulateMarketShare(
                 datalist_2016,
                 p_NippyoA,
-                parameter,
                 beta_hat,
-                gmm_res.minimizer,
-                Xi[data.year .== 2016]
+                resultGMM.minimizer,
+                Xi_2016,
             ),
     data_2016.HH
 );
-pro_rev_NippyoB = f_profit(
+pro_rev_NippyoB = calculateProfit(
     data_2016.Maker,
     p_NippyoB,
     mc,
-    f_mktshare_sim(
+    simulateMarketShare(
                 datalist_2016,
                 p_NippyoB,
-                parameter,
                 beta_hat,
-                gmm_res.minimizer,
-                Xi[data.year .== 2016]
+                resultGMM.minimizer,
+                Xi_2016,
             ),
     data_2016.HH
 );
@@ -738,45 +486,10 @@ total_df[!, :Maker] .= "Total"
 append!(result_df, total_df)
 ```
 
-## 8
-```{julia}
-function f_effect_cost_reduction(
-        cost_red::Float64,
-        cost_red_firm::AbstractVector,
-        Ownership::BitMatrix,
-        data::DataFrame,
-        mc::Vector{Float64},
-        datalist::datalist_struct,
-        parameter::parameter_struct,
-        theta1::Vector{Float64},
-        theta2::Vector{Float64},
-        HH::Vector{Int64},
-        p_pre::Vector{Float64},
-        pro_rev_pre::DataFrame,
-        CS_pre::Float64,
-        Xi::Vector{Float64}
-    )
-   
-    mc_new = mc[:];
-    mc_new[in(cost_red_firm).(data.Maker)] = mc_new[in(cost_red_firm).(data.Maker)] .* cost_red;
-    
-    p_post = f_eqprice(datalist, p_pre, Ownership, parameter, theta1, theta2, mc_new, Xi);
-    
-    CV = f_CS(datalist, p_post, parameter, theta1, theta2, Xi, HH[1]) - CS_pre;
-    
-    share_post = f_mktshare_sim(datalist, p_post, parameter, theta1, theta2, Xi);
-    pro_rev_post = f_profit(data.Maker, p_post, mc, share_post, HH);
-    
-    TS_change = CV + sum(pro_rev_post.profit .- pro_rev_pre.profit);
-    return TS_change
-    
-end
-```
-
-## 8.2
+## 追加的なシミュレーション
 
 ```{julia}
-cost_red_firm = ["Nippyo", "Brand_A"];
+costReducingFirms = ["Nippyo", "Brand_A"];
 distance = 100
 lambda = 1e-6;
 max_cost_red = 1.0;
@@ -786,26 +499,69 @@ iter = 1;
 ```
 
 ```{julia}
+#| echo: false
+#| eval: false
+@time calculateTSChangeByCostReduction(
+    .9,
+    costReducingFirms,
+    Ownership_NippyoA,
+    data_2016,
+    mc,
+    datalist_2016,
+    beta_hat,
+    resultGMM.minimizer,
+    data_2016.HH,
+    p_NippyoA,
+    pro_rev_2016,
+    CS_2016,
+    Xi_2016
+    );
+```
+
+```{julia}
+#| eval: false
+#| echo: false
+@time cost_red_NippyoA = find_zero(
+    x -> calculateTSChangeByCostReduction(
+        x,
+        costReducingFirms,
+        Ownership_NippyoA,
+        data_2016,
+        mc,
+        datalist_2016,
+        beta_hat,
+        resultGMM.minimizer,
+        data_2016.HH,
+        p_NippyoA,
+        pro_rev_2016,
+        CS_2016,
+        Xi_2016
+    ),
+    (.9, 1.0);
+    atol = lambda
+);
+```
+
+```{julia}
 #| eval: false
 @time while (distance > lambda) & (iter < 100)
     
     mid_cost_red = (max_cost_red + min_cost_red) / 2.0;
     
-    mid_eval = f_effect_cost_reduction(
+    mid_eval = calculateTSChangeByCostReduction(
         mid_cost_red,
-        cost_red_firm,
+        costReducingFirms,
         Ownership_NippyoA,
         data_2016,
         mc,
         datalist_2016,
-        parameter,
         beta_hat,
-        gmm_res.minimizer,
+        resultGMM.minimizer,
         data_2016.HH,
         p_NippyoA,
         pro_rev_2016,
         CS_2016,
-        Xi[data.year .== 2016]
+        Xi_2016
     );
     
     if mid_eval > 0
@@ -815,8 +571,6 @@ iter = 1;
     end
     
     distance = abs(mid_eval - 0);
-    print(distance, "\n")
-#     print(min_cost_red, ",", max_cost_red, ",", mid_cost_red, "\n")
     iter += 1
     
 end
@@ -832,42 +586,36 @@ serialize("tmp/demand_estimation_2/cost_red_NippyoA.ser", cost_red_NippyoA)
 
 ```{julia}
 #| echo: false
-cost_red_NippyoA = deserialize("tmp/demand_estimation_2/cost_red_NippyoA.ser")
+cost_red_NippyoA = deserialize("tmp/demand_estimation_2/cost_red_NippyoA.ser");
 ```
 
 
 ```{julia}
 mc_NippyoA_TSfix = mc[:];
-mc_NippyoA_TSfix[in(cost_red_firm).(data_2016.Maker)] = (
-    mc_NippyoA_TSfix[in(cost_red_firm).(data_2016.Maker)] .* cost_red_NippyoA
-    );
+mc_NippyoA_TSfix[in(costReducingFirms).(data_2016.Maker)] .*= cost_red_NippyoA;
 ```
 
 ```{julia}
-p_NippyoA_TSfix = f_eqprice(
+p_NippyoA_TSfix = calculateEquilibriumPrice(
     datalist_2016, 
     p_NippyoA, 
     Ownership_NippyoA, 
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
+    resultGMM.minimizer, 
     mc_NippyoA_TSfix, 
-    Xi[data.year .== 2016]
+    Xi_2016
     );
-share_NippyoA_TSfix = f_mktshare_sim(
+share_NippyoA_TSfix = simulateMarketShare(
     datalist_2016, 
     p_NippyoA_TSfix, 
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
-    Xi[data.year .== 2016]
+    resultGMM.minimizer, 
+    Xi_2016
     );
 ```
 
-## 8.3
-
 ```{julia}
-cost_red_firm = ["Nippyo", "Brand_B"];
+costReducingFirms = ["Nippyo", "Brand_B"];
 distance = 100
 lambda = 1e-6;
 max_cost_red = 1.0;
@@ -882,21 +630,20 @@ iter = 1;
     
     mid_cost_red = (max_cost_red + min_cost_red) / 2.0;
     
-    mid_eval = f_effect_cost_reduction(
+    mid_eval = calculateTSChangeByCostReduction(
         mid_cost_red,
-        cost_red_firm,
+        costReducingFirms,
         Ownership_NippyoB,
         data_2016,
         mc,
         datalist_2016,
-        parameter,
         beta_hat,
-        gmm_res.minimizer,
+        resultGMM.minimizer,
         data_2016.HH,
         p_NippyoB,
         pro_rev_2016,
         CS_2016,
-        Xi[data.year .== 2016]
+        Xi_2016
     );
     
     if mid_eval > 0
@@ -906,8 +653,6 @@ iter = 1;
     end
     
     distance = abs(mid_eval - 0);
-    print(distance, "\n")
-#     print(min_cost_red, ",", max_cost_red, ",", mid_cost_red, "\n")
     iter += 1
     
 end
@@ -917,58 +662,54 @@ cost_red_NippyoB = (min_cost_red + min_cost_red) / 2.0;
 ```{julia}
 #| echo: false
 #| eval: false
-serialize("tmp/demand_estimation_2/cost_red_NippyoB.ser", cost_red_NippyoB)
+serialize("tmp/demand_estimation_2/cost_red_NippyoB.ser", cost_red_NippyoB);
 ```
 
 ```{julia}
 #| echo: false
-cost_red_NippyoB = deserialize("tmp/demand_estimation_2/cost_red_NippyoB.ser")
+cost_red_NippyoB = deserialize("tmp/demand_estimation_2/cost_red_NippyoB.ser");
 ```
 
 ```{julia}
 mc_NippyoB_TSfix = mc[:];
-mc_NippyoB_TSfix[in(cost_red_firm).(data_2016.Maker)] = (
-    mc_NippyoB_TSfix[in(cost_red_firm).(data_2016.Maker)] .* cost_red_NippyoB
-    );
+mc_NippyoB_TSfix[in(costReducingFirms).(data_2016.Maker)] .*= cost_red_NippyoB;
 ```
 
 ```{julia}
-p_NippyoB_TSfix = f_eqprice(
+p_NippyoB_TSfix = calculateEquilibriumPrice(
     datalist_2016, 
     p_NippyoB, 
     Ownership_NippyoB,
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
+    resultGMM.minimizer, 
     mc_NippyoB_TSfix, 
-    Xi[data.year .== 2016]
+    Xi_2016
     );
-share_NippyoB_TSfix = f_mktshare_sim(
+share_NippyoB_TSfix = simulateMarketShare(
     datalist_2016, 
     p_NippyoB_TSfix, 
-    parameter, 
     beta_hat, 
-    gmm_res.minimizer, 
-    Xi[data.year .== 2016]
+    resultGMM.minimizer, 
+    Xi_2016
     );
 
 ```
 
 ```{julia}
-[1 - cost_red_NippyoA 1 - cost_red_NippyoB] .* 100
+[1-cost_red_NippyoA 1-cost_red_NippyoB] .* 100
 ```
 
-## 8.5
+### 限界費用削減をしたときの利潤と収入の変化
 
 ```{julia}
-pro_rev_NippyoA_rc = f_profit(
+pro_rev_NippyoA_rc = calculateProfit(
     data_2016.Maker,
     p_NippyoA_TSfix,
     mc_NippyoA_TSfix,
     share_NippyoA_TSfix,
     data_2016.HH
 );
-pro_rev_NippyoB_rc = f_profit(
+pro_rev_NippyoB_rc = calculateProfit(
     data_2016.Maker,
     p_NippyoB_TSfix,
     mc_NippyoB_TSfix,
@@ -982,7 +723,6 @@ result2_df = DataFrame(
     Revenue_NippyoA = pro_rev_NippyoA_rc.revenue - pro_rev_2016.revenue,
     Profits_NippyoB = pro_rev_NippyoB_rc.profit - pro_rev_2016.profit,
     Revenue_NippyoB = pro_rev_NippyoB_rc.revenue - pro_rev_2016.revenue,
-    
 );
 
 total2_df = combine(result2_df, 2:5 .=> sum .=> names(result2_df)[2:5]);
@@ -990,11 +730,21 @@ total2_df[!, :Maker] .= "Total";
 append!(result2_df, total2_df)
 ```
 
-## 8.6
-
 ```{julia}
-print("Change in profit by Brand A merger (%): ", (sum(pro_rev_NippyoA_rc.profit) .- sum(pro_rev_2016.profit)) ./ sum(pro_rev_2016.profit) .* 100.0, "\n")
-print("Change in revenue by Brand A merger (%): ", (sum(pro_rev_NippyoA_rc.revenue) .- sum(pro_rev_2016.revenue)) ./ sum(pro_rev_2016.revenue) .* 100.0, "\n")
-print("Change in profit by Brand B merger (%): ", (sum(pro_rev_NippyoB_rc.profit) .- sum(pro_rev_2016.profit)) ./ sum(pro_rev_2016.profit) .* 100.0, "\n")
-print("Change in revenue by Brand B merger (%): ", (sum(pro_rev_NippyoB_rc.revenue) .- sum(pro_rev_2016.revenue)) ./ sum(pro_rev_2016.revenue) .* 100.0, "\n")
+@printf(
+    "Percent change in profit by Brand A merger: %.3f \n", 
+    (sum(pro_rev_NippyoA_rc.profit) - sum(pro_rev_2016.profit)) / sum(pro_rev_2016.profit) * 100.0
+    )
+@printf(
+    "Percent change in revenue by brand A merger: %.3f \n", 
+    (sum(pro_rev_NippyoA_rc.revenue) - sum(pro_rev_2016.revenue)) / sum(pro_rev_2016.revenue) * 100.0
+    )
+@printf(
+    "Percent change in profit by Brand B merger: %.3f \n", 
+    (sum(pro_rev_NippyoB_rc.profit) - sum(pro_rev_2016.profit)) / sum(pro_rev_2016.profit) * 100.0
+    )
+@printf(
+    "Percent change in revenue by Brand B merger: %.3f \n", 
+    (sum(pro_rev_NippyoB_rc.revenue) - sum(pro_rev_2016.revenue)) / sum(pro_rev_2016.revenue) * 100.0
+    )
 ```
