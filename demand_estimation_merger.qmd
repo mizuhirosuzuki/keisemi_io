@@ -147,13 +147,13 @@ parameter = parameter_struct(Nsim, T, N);
 ```
 
 ```{julia}
-initial_x = [0.1];
+initial_x = [0.7];
 delta_ini = calculateMeanUtil(initial_x, datalist, datalist.logitshare);
 ```
 
 ```{julia}
 #| eval: false
-objFunc_for_Optim = TwiceDifferentiable(
+objFunc_for_Optim = OnceDifferentiable(
     x -> calculateGMMObjective(x, datalist, delta_ini),
     initial_x;
     autodiff = :forward
@@ -163,6 +163,7 @@ objFunc_for_Optim = TwiceDifferentiable(
     [0.0],
     [Inf],
     initial_x,
+    Fminbox(),
     Optim.Options(show_trace = false)
 )
 ```

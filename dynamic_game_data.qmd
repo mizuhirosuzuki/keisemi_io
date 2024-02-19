@@ -17,11 +17,82 @@ using JLD2
 
 ```{julia}
 
+mutable struct array_struct
+    CCP1Mat::Matrix{Float64}
+    CCP2Mat::Matrix{Float64}
+    stateTransitionMat::Matrix{Float64}
+    equilibriumProfitFirm1::Matrix{Float64}
+    equilibriumProfitFirm2::Matrix{Float64}
+    expectedShockUnderBestActionFirm1::Matrix{Float64}
+    expectedShockUnderBestActionFirm2::Matrix{Float64}
+    exanteV1::Vector{Float64}
+    exanteV2::Vector{Float64}
+    updatedCCP1Numerator::Matrix{Float64}
+    updatedCCP2Numerator::Matrix{Float64}
+    CCP1MatUpdated::Matrix{Float64}
+    CCP2MatUpdated::Matrix{Float64}
+    stateTransitionMatFirm2ActionSpecific::Array{Float64, 3}
+    stateTransitionMatFirm1ActionSpecific::Array{Float64, 3}
+    exanteV1Updated::Vector{Float64}
+    exanteV2Updated::Vector{Float64}
+end
+
+mutable struct global_param_struct
+    beta::Float64
+    eulergamma::Float64
+    entryMat::Matrix{Int}
+    numFirmsVec::Vector{Int}
+    economyVec::Vector{Int}
+    possibleActionArray::Array{Int, 3}
+end
+
+```
+
+```{julia}
+for file in readdir("functions/dynamic_game/")
+    include("functions/dynamic_game/" * file)
+end
+```
+
+```{julia}
+
+Random.seed!(123);
+
 beta = 0.8;
 eulergamma = Float64(MathConstants.eulergamma);
 TransitionMat = [0.7 0.3; 0.4 0.6]
 
-Random.seed!(123);
+entryMat = repeat([
+    0 0;
+    0 1;
+    1 0;
+    1 1;
+], 2);
+numFirmsVec = vec(sum(entryMat, dims = 2));
+economyVec = [repeat([1], 4); repeat([0], 4)];
+
+possibleActionArray = zeros(Int, 8, 3, 2);
+possibleActionArray[:, :, 1] .= repeat([
+    0 1 1;
+    0 1 1;
+    1 1 0;
+    1 1 0
+], 2);
+possibleActionArray[:, :, 2] .= repeat([
+    0 1 1;
+    1 1 0;
+    0 1 1;
+    1 1 0
+], 2);
+
+global_param = global_param_struct(
+    beta,
+    eulergamma,
+    entryMat,
+    numFirmsVec,
+    economyVec,
+    possibleActionArray
+);
 
 ```
 
@@ -36,92 +107,51 @@ Parameters = [
     -2.10
 ];
 
-TrueParameterValues = [
-    0.3,
-    -0.27,
-    0.45,
-    -0.15,
-    -2.10,
-    0.2,
-    -0.27,
-    0.45,
-    -0.15,
-    -2.10
-];
+parameterMat = hcat([
+    [Parameters[i]; Parameters[3:6]]
+    for i in 1:2
+]...);
+
+TrueParameterValues = vcat([
+    [Parameters[i]; Parameters[3:6]]
+    for i in 1:2
+]...);
 
 ```
 
 
 ```{julia}
-
-CCP1Adjuster = [
-    0 1 1;
-    0 1 1;
-    1 1 0;
-    1 1 0
-];
-CCP1Adjuster = vcat(CCP1Adjuster, CCP1Adjuster);
-
-CCP2Adjuster = [
-    0 1 1;
-    1 1 0;
-    0 1 1;
-    1 1 0
-];
-CCP2Adjuster = vcat(CCP2Adjuster, CCP2Adjuster);
-
-```
-
-```{julia}
-#| code-fold: true
-#| code-summary: "Pi gen"
-
-function pi1gen(theta)
-
-    base = [
-        0,
-        0,
-        theta[1] + theta[3],
-        theta[1] + theta[2] + theta[3],
-        0,
-        0,
-        theta[1],
-        theta[1] + theta[2]
-    ];
-
-    invdiv = [theta[4], 0, theta[5]];
-
-    base = reshape(repeat(base, 3), (8, :));
-    invdiv = reshape(repeat(invdiv, 8), (:, 8))';
-    return base + invdiv;
-end;
-
-function pi2gen(theta)
-
-    base = [
-        0,
-        theta[6] + theta[8],
-        0,
-        theta[6] + theta[7] + theta[8],
-        0,
-        theta[6],
-        0,
-        theta[6] + theta[7]
-    ];
-
-    invdiv = [theta[9], 0, theta[10]];
-
-    base = reshape(repeat(base, 3), (8, :));
-    invdiv = reshape(repeat(invdiv, 8), (:, 8))';
-    return base + invdiv;
-end;
-
+#| echo: false
+#| eval: false
+ 
+@time calculateFirmProfit(
+    parameterMat,
+    global_param.entryMat,
+    global_param.numFirmsVec,
+    global_param.economyVec,
+    global_param.possibleActionArray,
+    1
+);
 ```
 
 ```{julia}
 
-pi1 = pi1gen(TrueParameterValues) .* CCP1Adjuster;
-pi2 = pi2gen(TrueParameterValues) .* CCP2Adjuster;
+profitFirm1 = calculateFirmProfit(
+    parameterMat,
+    global_param.entryMat,
+    global_param.numFirmsVec,
+    global_param.economyVec,
+    global_param.possibleActionArray,
+    1
+);
+profitFirm2 = calculateFirmProfit(
+    parameterMat,
+    global_param.entryMat,
+    global_param.numFirmsVec,
+    global_param.economyVec,
+    global_param.possibleActionArray,
+    2
+);
 
 ```
 
@@ -129,415 +159,253 @@ pi2 = pi2gen(TrueParameterValues) .* CCP2Adjuster;
 
 ## Step 1
 
-```{julia}
-
-CCP1 = repeat([0.5], 8);
-CCP2 = repeat([0.5], 8);
-
-```
-
-```{julia}
-#| code-fold: true
-#| code-summary: "CCP Transform"
-
-function CCP1Transform(x)
-
-    return [
-        0 x[1] 1-x[1];
-        0 x[2] 1-x[2];
-        1-x[3] x[3] 0;
-        1-x[4] x[4] 0;
-        0 x[5] 1-x[5];
-        0 x[6] 1-x[6];
-        1-x[7] x[7] 0;
-        1-x[8] x[8] 0;
-    ]
-
-end;
-
-function CCP2Transform(x)
-
-    return [
-        0 x[1] 1-x[1];
-        1-x[2] x[2] 0;
-        0 x[3] 1-x[3];
-        1-x[4] x[4] 0;
-        0 x[5] 1-x[5];
-        1-x[6] x[6] 0;
-        0 x[7] 1-x[7];
-        1-x[8] x[8] 0;
-    ]
-
-end;
-
-```
 
 ```{julia}
 
-CCP1Mat = CCP1Transform(CCP1);
-CCP2Mat = CCP2Transform(CCP2);
+CCP1Stay = repeat([0.4], 8);
+CCP2Stay = repeat([0.4], 8);
 
-```
+CCP1Mat = (
+    hcat(
+        1 .- CCP1Stay,
+        CCP1Stay,
+        1 .- CCP1Stay,
+    ) .* 
+    global_param.possibleActionArray[:, :, 1]
+    );
+CCP2Mat = (
+    hcat(
+        1 .- CCP2Stay,
+        CCP2Stay,
+        1 .- CCP2Stay,
+    ) .* 
+    global_param.possibleActionArray[:, :, 2]
+    );
 
-```{julia}
-#| code-fold: true
-#| code-summary: "fP"
+stateTransitionMat = generateStateTransitionMat(
+    TransitionMat, 
+    CCP1Mat, 
+    CCP2Mat, 
+    global_param.possibleActionArray
+    );
 
-function fP(Matrix1, Vec1, Vec2)
+equilibriumProfitFirm1 = calculateProfitGivenOpponentCCP(profitFirm1, CCP2Mat);
+equilibriumProfitFirm2 = calculateProfitGivenOpponentCCP(profitFirm2, CCP1Mat);
 
-    TempMat0 = kron(Matrix1, ones(4, 4));
+expectedShockUnderBestActionFirm1 = (
+    eulergamma .- replace(log.(CCP1Mat), -Inf => 0)
+)
+expectedShockUnderBestActionFirm2 = (
+    eulergamma .- replace(log.(CCP2Mat), -Inf => 0)
+)
 
-    TempMat1 = [
-        Vec1[1] 1-Vec1[1];
-        Vec1[2] 1-Vec1[2];
-        1-Vec1[3] Vec1[3];
-        1-Vec1[4] Vec1[4];
-        Vec1[5] 1-Vec1[5];
-        Vec1[6] 1-Vec1[6];
-        1-Vec1[7] Vec1[7];
-        1-Vec1[8] Vec1[8];
-    ];
-    TempMat1 = kron(TempMat1, [1 1]);
-    TempMat1 = hcat(TempMat1, TempMat1);
-
-    TempMat2 = [
-        Vec2[1] 1-Vec2[1];
-        1-Vec2[2] Vec2[2];
-        Vec2[3] 1-Vec2[3];
-        1-Vec2[4] Vec2[4];
-        Vec2[5] 1-Vec2[5];
-        1-Vec2[6] Vec2[6];
-        Vec2[7] 1-Vec2[7];
-        1-Vec2[8] Vec2[8];
-    ];
-    TempMat2 = kron(ones(1, 4), TempMat2);
-
-    return TempMat0 .* TempMat1 .* TempMat2;
-
-end;
-
-```
-
-```{julia}
-
-fPsigma = fP(TransitionMat, CCP1, CCP2);
-
-```
-
-```{julia}
-#| code-fold: true
-#| code-summary: "piPsigma Gen"
-
-function pi1PsigmaGen(pi1, Mat2)
-
-    pi1_dec = pi1[:, 1];
-    pi1_0 = pi1[:, 2];
-    pi1_inc = pi1[:, 3];
-
-    pi1_dec = (pi1_dec .* Mat2) * ones(3);
-    pi1_0 = (pi1_0 .* Mat2) * ones(3);
-    pi1_inc = (pi1_inc .* Mat2) * ones(3);
-
-    return hcat(
-        pi1_dec, pi1_0, pi1_inc
-    )
-
-end
-
-function pi2PsigmaGen(pi2, Mat1)
-
-    pi2_dec = pi2[:, 1];
-    pi2_0 = pi2[:, 2];
-    pi2_inc = pi2[:, 3];
-
-    pi2_dec = (pi2_dec .* Mat1) * ones(3);
-    pi2_0 = (pi2_0 .* Mat1) * ones(3);
-    pi2_inc = (pi2_inc .* Mat1) * ones(3);
-
-    return hcat(
-        pi2_dec, pi2_0, pi2_inc
-    )
-
-end
-
-```
-
-
-```{julia}
-
-pi1Psigma = pi1PsigmaGen(pi1, CCP2Mat);
-pi2Psigma = pi2PsigmaGen(pi2, CCP1Mat);
-
-```
-
-```{julia}
-#| code-fold: true
-#| code-summary: "CCP Log Transform"
-
-function CCP1LogTransform(x)
-
-    return [
-        0 log(x[1]) log(1 - x[1]);
-        0 log(x[2]) log(1 - x[2]);
-        log(1 - x[3]) log(x[3]) 0;
-        log(1 - x[4]) log(x[4]) 0;
-        0 log(x[5]) log(1 - x[5]);
-        0 log(x[6]) log(1 - x[6]);
-        log(1 - x[7]) log(x[7]) 0;
-        log(1 - x[8]) log(x[8]) 0;
-    ]
-
-end
-
-function CCP2LogTransform(x)
-
-    return [
-        0 log(x[1]) log(1 - x[1]);
-        log(1 - x[2]) log(x[2]) 0;
-        0 log(x[3]) log(1 - x[3]);
-        log(1 - x[4]) log(x[4]) 0;
-        0 log(x[5]) log(1 - x[5]);
-        log(1 - x[6]) log(x[6]) 0;
-        0 log(x[7]) log(1 - x[7]);
-        log(1 - x[8]) log(x[8]) 0;
-    ]
-
-end
-
-```
-
-```{julia}
-
-eP1 = eulergamma .- CCP1LogTransform(CCP1);
-eP2 = eulergamma .- CCP2LogTransform(CCP2);
-
-```
-
-```{julia}
-
-ExanteV1 = (
-    (diagm(ones(8)) - beta .* fPsigma) \ 
-    ((CCP1Mat .* (pi1Psigma + eP1)) * ones(3))
+exanteV1 = vec(
+    (I(8) - beta .* stateTransitionMat) \ 
+    sum(CCP1Mat .* (equilibriumProfitFirm1 + expectedShockUnderBestActionFirm1), dims = 2)
 );
 
-ExanteV2 = (
-    (diagm(ones(8)) - beta .* fPsigma) \ 
-    ((CCP2Mat .* (pi2Psigma + eP2)) * ones(3))
+exanteV2 = vec(
+    (I(8) - beta .* stateTransitionMat) \ 
+    sum(CCP2Mat .* (equilibriumProfitFirm2 + expectedShockUnderBestActionFirm2), dims = 2)
+);
+
+
+```
+
+
+```{julia}
+#| echo: false
+#| eval: false
+
+@time generateStateTransitionMat(
+    TransitionMat, 
+    CCP1Mat, 
+    CCP2Mat, 
+    global_param.possibleActionArray
+    );
+```
+
+```{julia}
+#| echo: false
+#| eval: false
+
+@time calculateProfitGivenOpponentCCP(profitFirm1, CCP2Mat);
+```
+
+```{julia}
+#| echo: false
+#| eval: false
+
+# @time calculateFirm2ActionSpecificTransitionMat(
+#         TransitionMat, 
+#         CCP2Mat
+#         );
+
+```
+
+```{julia}
+#| echo: false
+#| eval: false
+
+stateTransitionMatFirm2ActionSpecific = zeros(8, 8, 3);
+@time calculateFirm2ActionSpecificTransitionMat!(
+    TransitionMat, 
+    CCP2Mat,
+    stateTransitionMatFirm2ActionSpecific
+    );
+
+```
+
+
+```{julia}
+
+# updatedCCP1Numerator = zeros(8, 3);
+# updatedCCP2Numerator = zeros(8, 3);
+# CCP1MatUpdated = zeros(8, 3);
+# CCP2MatUpdated = zeros(8, 3);
+# stateTransitionMatFirm2ActionSpecific = zeros(8, 8, 3);
+# stateTransitionMatFirm1ActionSpecific = zeros(8, 8, 3);
+
+data_generate_struct = array_struct(
+    CCP1Mat,
+    CCP2Mat,
+    stateTransitionMat,
+    equilibriumProfitFirm1,
+    equilibriumProfitFirm2,
+    expectedShockUnderBestActionFirm1,
+    expectedShockUnderBestActionFirm2,
+    exanteV1,
+    exanteV2,
+    zeros(8, 3),
+    zeros(8, 3),
+    zeros(8, 3),
+    zeros(8, 3),
+    zeros(8, 8, 3),
+    zeros(8, 8, 3),
+    zeros(8),
+    zeros(8)
 );
 
 ```
 
 
 ```{julia}
-#| code-fold: true
-#| code-summary: "fP a given"
 
-function fP_a1given(Matrix1, Vec2)
-
-    TempMat0 = kron(Matrix1, ones(4, 4));
-
-    TempMat2 = [
-        Vec2[1] 1-Vec2[1] Vec2[1] 1-Vec2[1];
-        1-Vec2[2] Vec2[2] 1-Vec2[2] Vec2[2];
-        Vec2[3] 1-Vec2[3] Vec2[3] 1-Vec2[3];
-        1-Vec2[4] Vec2[4] 1-Vec2[4] Vec2[4];
-        Vec2[5] 1-Vec2[5] Vec2[5] 1-Vec2[5];
-        1-Vec2[6] Vec2[6] 1-Vec2[6] Vec2[6];
-        Vec2[7] 1-Vec2[7] Vec2[7] 1-Vec2[7];
-        1-Vec2[8] Vec2[8] 1-Vec2[8] Vec2[8];
-    ];
-    TempMat2 = hcat(TempMat2, TempMat2);
-
-    MatAdjustMinus1 = repeat(vcat(
-        zeros(2, 8), ones(2, 8)
-    ), 2);
-    MatAdjustMinus2 = repeat(vcat(
-        ones(2, 8), zeros(2, 8)
-    ), 2)';
-    output1 = TempMat0 .* TempMat2 .* MatAdjustMinus1 .* MatAdjustMinus2;
-
-
-    ForZero = diagm(ones(2));
-    MatAdjustZero = kron(ForZero, ones(2, 2));
-    MatAdjustZero = hcat(MatAdjustZero, MatAdjustZero);
-    MatAdjustZero = vcat(MatAdjustZero, MatAdjustZero);
-    output2 = TempMat0 .* TempMat2 .* MatAdjustZero;
-
-
-    MatAdjustPlus1 = repeat(vcat(
-        ones(2, 8), zeros(2, 8)
-    ), 2);
-    MatAdjustPlus2 = repeat(vcat(
-        zeros(2, 8), ones(2, 8)
-    ), 2)';
-    output3 = TempMat0 .* TempMat2 .* MatAdjustPlus1 .* MatAdjustPlus2;
-
-    return [output1, output2, output3]
-end
-
-function fP_a2given(Matrix1, Vec1)
-
-    TempMat0 = kron(Matrix1, ones(4, 4));
-
-    TempMat1 = [
-        Vec1[1] Vec1[1] 1-Vec1[1] 1-Vec1[1];
-        Vec1[2] Vec1[2] 1-Vec1[2] 1-Vec1[2];
-        1-Vec1[3] 1-Vec1[3] Vec1[3] Vec1[3];
-        1-Vec1[4] 1-Vec1[4] Vec1[4] Vec1[4];
-        Vec1[5] Vec1[5] 1-Vec1[5] 1-Vec1[5];
-        Vec1[6] Vec1[6] 1-Vec1[6] 1-Vec1[6];
-        1-Vec1[7] 1-Vec1[7] Vec1[7] Vec1[7];
-        1-Vec1[8] 1-Vec1[8] Vec1[8] Vec1[8];
-    ];
-    TempMat1 = kron(ones(1, 2), TempMat1);
-
-    MatAdjustMinus1 = repeat(vcat(zeros(1, 8), ones(1, 8)), 4);
-    MatAdjustMinus2 = repeat(vcat(ones(1, 8), zeros(1, 8)), 4)';
-    output1 = TempMat0 .* TempMat1 .* MatAdjustMinus1 .* MatAdjustMinus2;
-
-
-    MatAdjustZero = repeat(vcat(
-        repeat([1, 0], 4)',
-        repeat([0, 1], 4)',
-    ), 4);
-    output2 = TempMat0 .* TempMat1 .* MatAdjustZero;
-
-
-    MatAdjustPlus1 = repeat(vcat(ones(1, 8), zeros(1, 8)), 4);
-    MatAdjustPlus2 = repeat(vcat(zeros(1, 8), ones(1, 8)), 4)';
-    output3 = TempMat0 .* TempMat1 .* MatAdjustPlus1 .* MatAdjustPlus2;
-
-    return [output1, output2, output3]
-end
-
-
-```
-
-
-```{julia}
-
-fP_a1 = fP_a1given(TransitionMat, CCP2);
-fP_a2 = fP_a2given(TransitionMat, CCP1);
-
-```
-
-```{julia}
-
-NewSigmaSeed1 = (
-    pi1Psigma + beta .* hcat(fP_a1[1] * ExanteV1, fP_a1[2] * ExanteV1, fP_a1[3] * ExanteV1) .* CCP1Adjuster
-);
-NewSigmaDeno1 = (
-    sum(exp.(NewSigmaSeed1), dims = 2) .- 1
-);
-NewSigma1 = exp.(NewSigmaSeed1) ./ NewSigmaDeno1;
-CCP1UpdatedMat = NewSigma1 .* CCP1Adjuster;
-CCP1Updated = CCP1UpdatedMat[:, 2];
-
-NewSigmaSeed2 = (
-    pi2Psigma + beta .* hcat(fP_a2[1] * ExanteV2, fP_a2[2] * ExanteV2, fP_a2[3] * ExanteV2) .* CCP2Adjuster
-);
-NewSigmaDeno2 = (
-    sum(exp.(NewSigmaSeed2), dims = 2) .- 1
-);
-NewSigma2 = exp.(NewSigmaSeed2) ./ NewSigmaDeno2;
-CCP2UpdatedMat = NewSigma2 .* CCP2Adjuster;
-CCP2Updated = CCP2UpdatedMat[:, 2];
-
-```
-
-## Step 4
-
-```{julia}
-
-fPsigma = fP(TransitionMat, CCP1Updated, CCP2Updated);
-
-pi1Psigma = pi1PsigmaGen(pi1, CCP2UpdatedMat);
-pi2Psigma = pi2PsigmaGen(pi2, CCP1UpdatedMat);
-
-eP1 = eulergamma .- CCP1LogTransform(CCP1Updated);
-eP2 = eulergamma .- CCP2LogTransform(CCP2Updated);
-
-ExanteV1Updated = (
-    (diagm(ones(8)) - beta .* fPsigma) \ 
-    ((CCP1UpdatedMat .* (pi1Psigma + eP1)) * ones(3))
-);
-
-ExanteV2Updated = (
-    (diagm(ones(8)) - beta .* fPsigma) \ 
-    ((CCP2UpdatedMat .* (pi2Psigma + eP2)) * ones(3))
-);
-
-```
-
-## Step 5
-
-```{julia}
-
-DiffExanteV = 1;
+diffExanteV = 1;
 iter = 0;
 
-@time while (DiffExanteV > 1e-12)
+@time while (diffExanteV > 1e-12)
 
-    CCP1 = CCP1Updated[:];
-    CCP2 = CCP2Updated[:];
+    calculateFirm2ActionSpecificTransitionMat!(
+        TransitionMat, 
+        data_generate_struct.CCP2Mat,
+        data_generate_struct.stateTransitionMatFirm2ActionSpecific
+        );
+    calculateFirm1ActionSpecificTransitionMat!(
+        TransitionMat, 
+        data_generate_struct.CCP1Mat,
+        data_generate_struct.stateTransitionMatFirm1ActionSpecific
+        );
 
-    ExanteV1 = ExanteV1Updated[:];
-    ExanteV2 = ExanteV2Updated[:];
-
-    fP_a1 = fP_a1given(TransitionMat, CCP2);
-    fP_a2 = fP_a2given(TransitionMat, CCP1);
-
-    NewSigmaSeed1 = (
-        pi1Psigma + beta .* hcat(fP_a1[1] * ExanteV1, fP_a1[2] * ExanteV1, fP_a1[3] * ExanteV1) .* CCP1Adjuster
-    );
-    NewSigmaDeno1 = (
-        sum(exp.(NewSigmaSeed1), dims = 2) .- 1
-    );
-    NewSigma1 = exp.(NewSigmaSeed1) ./ NewSigmaDeno1;
-    CCP1UpdatedMat = NewSigma1 .* CCP1Adjuster;
-    CCP1Updated = CCP1UpdatedMat[:, 2];
-
-    NewSigmaSeed2 = (
-        pi2Psigma + beta .* hcat(fP_a2[1] * ExanteV2, fP_a2[2] * ExanteV2, fP_a2[3] * ExanteV2) .* CCP2Adjuster
-    );
-    NewSigmaDeno2 = (
-        sum(exp.(NewSigmaSeed2), dims = 2) .- 1
-    );
-    NewSigma2 = exp.(NewSigmaSeed2) ./ NewSigmaDeno2;
-    CCP2UpdatedMat = NewSigma2 .* CCP2Adjuster;
-    CCP2Updated = CCP2UpdatedMat[:, 2];
-
-    fPsigma = fP(TransitionMat, CCP1Updated, CCP2Updated);
-
-    pi1Psigma = pi1PsigmaGen(pi1, CCP2UpdatedMat);
-    pi2Psigma = pi2PsigmaGen(pi2, CCP1UpdatedMat);
-
-    eP1 = eulergamma .- CCP1LogTransform(CCP1Updated);
-    eP2 = eulergamma .- CCP2LogTransform(CCP2Updated);
-
-    ExanteV1Updated = (
-        (diagm(ones(8)) - beta .* fPsigma) \ 
-        ((CCP1UpdatedMat .* (pi1Psigma + eP1)) * ones(3))
+    for i in 1:3
+        data_generate_struct.updatedCCP1Numerator[:, i] .= exp.(
+            view(data_generate_struct.equilibriumProfitFirm1, :, i) .+ 
+            beta .* view(data_generate_struct.stateTransitionMatFirm2ActionSpecific, :, :, i) * 
+            data_generate_struct.exanteV1 .*
+            view(global_param.possibleActionArray, :, i, 1)
+        );
+    end
+    data_generate_struct.CCP1MatUpdated .= (
+        (
+            data_generate_struct.updatedCCP1Numerator ./ 
+            (sum(data_generate_struct.updatedCCP1Numerator, dims = 2) .- 1)) .* 
+        view(global_param.possibleActionArray, :, :, 1)
     );
 
-    ExanteV2Updated = (
-        (diagm(ones(8)) - beta .* fPsigma) \ 
-        ((CCP2UpdatedMat .* (pi2Psigma + eP2)) * ones(3))
+    for i in 1:3
+        data_generate_struct.updatedCCP2Numerator[:, i] .= exp.(
+            view(data_generate_struct.equilibriumProfitFirm2, :, i) .+ 
+            beta .* view(data_generate_struct.stateTransitionMatFirm1ActionSpecific, :, :, i) * 
+            data_generate_struct.exanteV2 .*
+            view(global_param.possibleActionArray, :, i, 2)
+        );
+    end
+    data_generate_struct.CCP2MatUpdated .= (
+        (
+            data_generate_struct.updatedCCP2Numerator ./ 
+            (sum(data_generate_struct.updatedCCP2Numerator, dims = 2) .- 1)
+            ) .* 
+        view(global_param.possibleActionArray, :, :, 2)
     );
 
-    DiffExanteV = sum((ExanteV1Updated - ExanteV1).^2 + (ExanteV2Updated - ExanteV2).^2);
+    data_generate_struct.stateTransitionMat .= generateStateTransitionMat(
+        TransitionMat, 
+        data_generate_struct.CCP1MatUpdated, 
+        data_generate_struct.CCP2MatUpdated, 
+        global_param.possibleActionArray
+        );
 
-end;
+    data_generate_struct.equilibriumProfitFirm1 .= calculateProfitGivenOpponentCCP(
+        profitFirm1, 
+        data_generate_struct.CCP2MatUpdated
+        );
+    data_generate_struct.equilibriumProfitFirm2 .= calculateProfitGivenOpponentCCP(
+        profitFirm2, 
+        data_generate_struct.CCP1MatUpdated
+        );
 
+    data_generate_struct.expectedShockUnderBestActionFirm1 .= (
+        eulergamma .- replace(log.(data_generate_struct.CCP1MatUpdated), -Inf => 0)
+    )
+    data_generate_struct.expectedShockUnderBestActionFirm2 .= (
+        eulergamma .- replace(log.(data_generate_struct.CCP2MatUpdated), -Inf => 0)
+    )
 
-```
+    data_generate_struct.exanteV1Updated .= vec(
+        (I(8) - beta .* data_generate_struct.stateTransitionMat) \ 
+        sum(
+            data_generate_struct.CCP1MatUpdated .* (
+                data_generate_struct.equilibriumProfitFirm1 + 
+                data_generate_struct.expectedShockUnderBestActionFirm1
+                ), dims = 2)
+    );
 
-```{julia}
-CCP1UpdatedMat
-```
+    data_generate_struct.exanteV2Updated .= vec(
+        (I(8) - beta .* data_generate_struct.stateTransitionMat) \ 
+        sum(
+            data_generate_struct.CCP2MatUpdated .* (
+                data_generate_struct.equilibriumProfitFirm2 + 
+                data_generate_struct.expectedShockUnderBestActionFirm2
+                ), dims = 2)
+    );
 
-```{julia}
-CCP2UpdatedMat
+    diffExanteV = sum(
+        (data_generate_struct.exanteV1Updated - data_generate_struct.exanteV1).^2
+        ) + sum(
+            (data_generate_struct.exanteV2Updated - data_generate_struct.exanteV2).^2
+            );
+
+    data_generate_struct.exanteV1 .= data_generate_struct.exanteV1Updated[:];
+    data_generate_struct.exanteV2 .= data_generate_struct.exanteV2Updated[:];
+
+    data_generate_struct.CCP1Mat .= data_generate_struct.CCP1MatUpdated[:, :];
+    data_generate_struct.CCP2Mat .= data_generate_struct.CCP2MatUpdated[:, :];
+
+    println(diffExanteV)
+    iter += 1;
+
+end
+
+println(iter)
+
+CCP1Mat .= data_generate_struct.CCP1Mat;
+CCP2Mat .= data_generate_struct.CCP2Mat;
+
+exanteV1 = data_generate_struct.exanteV1;
+exanteV2 = data_generate_struct.exanteV2;
+
+hcat(CCP1Mat, CCP2Mat)
+
 ```
 
 ## Step 6
@@ -619,66 +487,66 @@ for m in 1:NumSimMarkets, t in 1:NumSimPeriods
 
     if s == 1
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [1, 0, 0];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = 1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = 1;
         end
     elseif s == 2
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [1, 0, 1];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = 1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = -1;
         end
     elseif s == 3
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [1, 1, 0];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = -1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = 1;
         end
     elseif s == 4
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [1, 1, 1];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = -1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = -1;
         end
     elseif s == 5
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [2, 0, 0];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = 1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = 1;
         end
     elseif s == 6
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [2, 0, 1];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = 1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = -1;
         end
     elseif s == 7
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [2, 1, 0];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = -1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = 1;
         end
     elseif s == 8
         FakeData[(m - 1) * NumSimPeriods + t, 4:6] .= [2, 1, 1];
-        if (RandomNumbers[m, t, 1] > CCP1UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 1] > CCP1Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 7] = -1;
         end
-        if (RandomNumbers[m, t, 2] > CCP2UpdatedMat[s, 2])
+        if (RandomNumbers[m, t, 2] > CCP2Mat[s, 2])
             FakeData[(m - 1) * NumSimPeriods + t, 8] = -1;
         end
     end
@@ -690,8 +558,8 @@ end
 
 jldsave(
     "tmp/dynamic_game/data_workspace.jld2" ;
-    FakeData, CCP1UpdatedMat, CCP2UpdatedMat, 
-    ExanteV1, ExanteV2, ExanteV1Updated, ExanteV2Updated
+    FakeData, CCP1Mat, CCP2Mat, 
+    exanteV1, exanteV2, global_param
 )
 
 ```

@@ -24,6 +24,7 @@ for file in readdir("functions/single_agent_dynamic/")
     include("functions/single_agent_dynamic/" * file)
 end
 ```
+
 ```{julia}
 data_gen = CSV.read("tmp/single_agent_dynamic_basic/data_gen.csv", DataFrame);
 first(data_gen, 3)

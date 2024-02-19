@@ -25,7 +25,7 @@ function calculateMeanUtil(
         norm = maximum(abs.(exp_delta .- exp_delta_old));
         
         exp_delta_old = exp_delta[:];
-        delta_old = log.(exp_delta[:]);
+        delta_old = log.(exp_delta_old);
         iter += 1;
         
     end
@@ -33,4 +33,3 @@ function calculateMeanUtil(
     return delta_old;
     
 end
-

@@ -296,19 +296,21 @@ param_init = [
 #| echo: false
 #| eval: false
 
-# obj_for_Optim = TwiceDifferentiable(
-#     x -> calculateBerryObjective(x, data_processed, u_m0, u_mIm, numEntryObs),
+# using Optim
+#
+# obj_for_Optim = OnceDifferentiable(
+#     x -> calculateBerryObjectiveAtCityLevel(x, data_processed, u_m0, u_mIm, numEntryObs),
 #     param_init;
 #     autodiff = :forward
 # );
 # @time optim_res = Optim.optimize(
 #     obj_for_Optim,
-#     # x -> calculateBerryObjective(x, data_processed, u_m0, u_mIm, numEntryObs),
+#     # x -> calculateBerryObjectiveAtCityLevel(x, data_processed, u_m0, u_mIm, numEntryObs),
 #     [repeat([-Inf], 13); -1.0],
 #     [repeat([Inf], 13); 1.0],
 #     param_init,
-#     # NelderMead(),
-#     Optim.Options(show_trace = false)
+#     Fminbox(LBFGS()),
+#     Optim.Options(show_trace = true)
 # );
 
 # [param_init optim_res.minimizer]

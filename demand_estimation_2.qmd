@@ -115,6 +115,8 @@ elasticityMat = reduce(
 elasticityMat[diagind(elasticityMat)] = ownElasticity;
 
 elasticityMat[[12, 13, 10, 1], [12, 13, 10, 1]]
+
+
 ```
 
 ## 入れ子型ロジット推定のためのBLP操作変数の作成
@@ -344,7 +346,7 @@ parameter = parameter_struct(Nsim, T, N);
 ```{julia}
 #| echo: false
 #| eval: false
-@time calculateMeanUtil([0.1, 0.01, 0.01], datalist, data.logit_share);
+@time calculateMeanUtil([0.001, 0.001, 0.001], datalist, data.logit_share);
 ```
 
 ### Step 4
@@ -356,12 +358,33 @@ parameter = parameter_struct(Nsim, T, N);
 ```
 
 ```{julia}
-initial_x = [0.1, 1.0, 0.1];
+initial_x = [0.3, 18, 0.01];
 delta_ini = calculateMeanUtil(initial_x, datalist, datalist.logitshare);
 ```
 
 ```{julia}
 #| eval: false
+
+objFunc_for_Optim = OnceDifferentiable(
+    x -> calculateGMMObjective(x, datalist, delta_ini),
+    initial_x;
+    autodiff = :forward
+    );
+@time resultGMM = optimize(
+    objFunc_for_Optim,
+    [0.0, 0.0, 0.0],
+    [Inf, Inf, Inf],
+    initial_x,
+    Fminbox(LBFGS()),
+    Optim.Options(show_trace = false)
+);
+
+```
+
+```{julia}
+#| eval: false
+#| echo: false
+
 objFunc_for_Optim = TwiceDifferentiable(
     x -> calculateGMMObjective(x, datalist, delta_ini),
     initial_x;
@@ -372,8 +395,9 @@ objFunc_for_Optim = TwiceDifferentiable(
     [0.0, 0.00, 0.00],
     [Inf, Inf, Inf],
     initial_x,
-    Optim.Options(show_trace = false)
-);
+    Optim.Options(show_trace = true)
+)
+
 ```
 
 ```{julia}
@@ -440,7 +464,7 @@ elasmat = calculateElasticity(
     delta[market2016Index, :]
 )
 
-elasmat[[12, 13, 10, 1], [12, 13, 10, 1]]
+elasmat[[59, 80, 102, 113], [59, 80, 102, 113]]
 
 ```
 
