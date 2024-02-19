@@ -25,15 +25,26 @@ for file in readdir("functions/single_agent_dynamic/")
 end
 ```
 
+## 前章で生成したデータの読み込み
+
 ```{julia}
 data_gen = CSV.read("tmp/single_agent_dynamic_basic/data_gen.csv", DataFrame);
 first(data_gen, 3)
 ```
 
+## 前章で推定したパラメタの読み込み
+
 ```{julia}
 kappa_est = deserialize("tmp/single_agent_dynamic_basic/kappa_est.ser");
 lambda_est = deserialize("tmp/single_agent_dynamic_basic/lambda_est.ser");
 theta_est = deserialize("tmp/single_agent_dynamic_basic/theta_est.ser");
+```
+
+```{julia}
+theta_true = [0.004, 0.003];
+beta = 0.99;
+Euler_const = Float64(MathConstants.eulergamma);
+num_choice = 2;
 ```
 
 ```{julia}
@@ -60,14 +71,9 @@ describe(
   )[:, [:variable, :mean, :std, :min, :max]]
 ```
 
-## 4
+## 二段階推定法
 
-```{julia}
-theta_true = [0.004, 0.003];
-beta = 0.99;
-Euler_const = Float64(MathConstants.eulergamma);
-num_choice = 2;
-```
+### 推定されたパラメタに基づくState transition matrixの生成
 
 ```{julia}
 
@@ -86,6 +92,8 @@ for i in 1:num_choice
     trans_mat_hat[:, :, i] = kron(mileage_trans_mat_hat[:, :, i], price_trans_mat_hat);
 end
 ```
+
+### CCPの推定
 
 ```{julia}
 
@@ -115,6 +123,7 @@ CCP_1st = convert(Matrix{Float64}, CCP_1st);
 )
 ```
 
+### 行列形式によるインバージョンを用いたパラメタの推定
 
 ```{julia}
 
@@ -159,7 +168,7 @@ theta_se_mat_inv = sqrt.(diag(inv(hessian_mat_inv)));
 DataFrame(theta_mat_inv = theta_mat_inv, theta_se_mat_inv = theta_se_mat_inv)
 ```
 
-### 4.2.2
+### 有限依存性を用いたパラメタの推定
 
 ```{julia}
 
@@ -204,7 +213,7 @@ theta_se_finite_dep = sqrt.(diag(inv(hessian_finite_dep)));
 DataFrame(theta_finite_dep = theta_finite_dep, theta_se_finite_dep = theta_se_finite_dep)
 ```
 
-### 5.2
+### 推定方法の比較
 
 ```{julia}
 #| echo: false
@@ -263,7 +272,7 @@ DataFrame(
 )
 ```
 
-## 6
+## 反実仮想分析 1: Every Day Low Price
 
 ```{julia}
 CCP_dict = Dict();
@@ -361,8 +370,7 @@ xlabel!("Price (thousand JPY)")
 ylabel!("Purchase probability")
 ```
 
-
-## 7
+## 反実仮想分析 2: 永続的・一時的な値下げ
 
 ```{julia}
 
@@ -399,8 +407,6 @@ xlabel!("Mileage (thousand km)")
 ylabel!("Purchase probability")
 
 ```
-
-### 7.2
 
 ```{julia}
 
@@ -537,7 +543,7 @@ ylabel!("Change in purchase probability")
 
 ```
 
-## 8
+## 需要と収入の計算
 
 ```{julia}
 

@@ -36,14 +36,7 @@ mutable struct datalist_struct
     marketIndexMat::BitMatrix
 end
 
-mutable struct parameter_struct
-    Nsim::Int;
-    T::Int;
-    N::Int;
-end
-
 ```
-
 
 ```{julia}
 for file in readdir("functions/demand_estimation")
@@ -57,7 +50,7 @@ end
 data = CSV.read("tmp/demand_estimation_1/data.csv", DataFrame);
 ```
 
-## 4.1
+## データの準備
 
 ```{julia}
 NIPPYOautoIDvec = [
@@ -76,7 +69,7 @@ dataNIPPYO[!, :log10_sales] = log10.(dataNIPPYO[:, :Sales]);
 dataNIPPYO[!, :log10_price] = log10.(dataNIPPYO[:, :price]);
 ```
 
-## 価格弾力性行列の作成
+## Logitモデルにおける価格弾力性行列の作成
 
 ```{julia}
 data[!, :logit_share] = log.(data[:, :share]) .- log.(data[:, :share0]);
@@ -160,7 +153,7 @@ data[!, :iv_BLP_other_num_nest] = data[:, :mkt_n] .- data[:, :group_n];
 
 ```
 
-## 入れ子型ロジットモデルの推定とその応用
+## 入れ子型ロジットモデルの推定
 
 ```{julia}
 data = transform(
@@ -287,7 +280,7 @@ elasticityNestedLogitMat[[12, 13, 10, 1], [12, 13, 10, 1]]
 
 ## ランダム係数ロジットモデルの推定
 
-### Step 1
+### 下準備
 
 ```{julia}
 sort!(data, [:year, :NameID]);
@@ -330,10 +323,7 @@ datalist = datalist_struct(
     randomDrawMat, 
     marketIndexMat
     );
-parameter = parameter_struct(Nsim, T, N);
 ```
-
-### Step 2
 
 ```{julia}
 #| eval: false
@@ -341,21 +331,19 @@ parameter = parameter_struct(Nsim, T, N);
 @time calculateMarketShare([0.01, 0.01, 0.01], datalist, data.logit_share);
 ```
 
-### Step 3
-
 ```{julia}
 #| echo: false
 #| eval: false
 @time calculateMeanUtil([0.001, 0.001, 0.001], datalist, data.logit_share);
 ```
 
-### Step 4
-
 ```{julia}
 #| echo: false
 #| eval: false
 @time calculateGMMObjective([0.1, 0.01, 0.01], datalist, datalist.logitshare);
 ```
+
+### 推定
 
 ```{julia}
 initial_x = [0.3, 18, 0.01];
@@ -426,7 +414,7 @@ beta_hat = (
 beta_hat
 ```
 
-### Step 5
+### 標準誤差の計算
 
 ```{julia}
 Xi = delta - X1 * beta_hat;
@@ -449,7 +437,7 @@ DataFrame(
 )
 ```
 
-## 8
+## 価格弾力性行列の計算
 
 ```{julia}
 
@@ -468,7 +456,7 @@ elasmat[[59, 80, 102, 113], [59, 80, 102, 113]]
 
 ```
 
-## 9
+## 応用: プライシング
 
 ```{julia}
 price_range = range(1.8, 4.0, step = 0.05);

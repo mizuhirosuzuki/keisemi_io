@@ -23,6 +23,8 @@ for file in ["calculateBRObjective.jl"]
 end
 ```
 
+## データの読み込み
+
 ```{julia}
 data = CSV.File(
     open(read, "data/entry_exit_basic/MRIData.csv", enc"UTF-8"),
@@ -42,7 +44,7 @@ dropmissing!(dataset, :);
 numObs = nrow(dataset)
 ```
 
-## 4
+## Bresnahan and Reiss (1991) モデルの推定
 
 ```{julia}
 hospitalNumCap = 6;
@@ -79,7 +81,7 @@ DataFrame(
 )
 ```
 
-## 5
+## 推定値に基づくエクササイズ
 
 ```{julia}
 alpha_est = optim_res.minimizer[1:hospitalNumCap];

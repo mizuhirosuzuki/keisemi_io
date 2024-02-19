@@ -25,6 +25,8 @@ book:
       chapters:
         - dynamic_game_data.qmd
         - dynamic_game_estimation_1.qmd
+        - dynamic_game_estimation_2.qmd
+        - dynamic_game_counterfactual.qmd
 
 format:
   html:

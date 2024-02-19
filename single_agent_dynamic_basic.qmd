@@ -27,6 +27,8 @@ for file in readdir("functions/single_agent_dynamic/")
 end
 ```
 
+## パラメタの設定
+
 ```{julia}
 theta_true = [0.004, 0.003];
 
@@ -122,6 +124,8 @@ prob_buy_true_mat = reshape(
     );
 ```
 
+## データの生成
+
 ```{julia}
 num_consumer = 1000;
 
@@ -216,8 +220,7 @@ surface(
 
 ```
 
-
-## 4
+## 遷移行列の推定
 
 ```{julia}
 transform!(
@@ -430,7 +433,9 @@ DataFrame(
 )
 ```
 
-## 5
+## パラメタの推定
+
+### 静学的なロジットによる推定
 
 ```{julia}
 @time logit_stat_opt = optimize(
@@ -455,7 +460,7 @@ theta_se_stat = sqrt.(diag(inv(hessian_stat)));
 DataFrame(theta_est_stat = theta_est_stat, theta_se_stat = theta_se_stat)
 ```
 
-### 5.2
+### 不動点アルゴリズムを用いた、動学的なロジットによる推定
 
 ```{julia}
 

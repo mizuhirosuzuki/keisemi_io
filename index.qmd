@@ -2,8 +2,8 @@
 title: "はじめに"
 ---
 
-This is a Quarto website.
+このウェブサイトは[『経済セミナー』](https://www.nippyo.co.jp/shop/magazines/latest/3.html)で連載されていた『実証ビジネス・エコノミクス』で取り上げられた分析を、Juliaで再現したものです。
+元の分析はRで実装されており、[ここ](https://sites.google.com/view/keisemi-ebiz/%E3%83%9B%E3%83%BC%E3%83%A0)でコードを見ることができます。
+本ウェブサイトは完全に筆者の趣味で作られたものであり、経済セミナー及び『実証ビジネス・エコノミクス』の公式のものではないことをご了承ください。
 
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
-
-
+コードに不備や疑問点などありましたら、[GitHubのIssues](https://github.com/mizuhirosuzuki/keisemi_io/issues)までご連絡いただけますと幸いです。

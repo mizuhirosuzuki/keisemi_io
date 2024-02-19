@@ -51,14 +51,14 @@ for file in readdir("functions/demand_estimation")
 end
 ```
 
-
+## データの読み込み
 
 ```{julia}
 data = CSV.read("data/demand_estimation_merger/chap3_data.csv", DataFrame);
 first(data, 5)
 ```
 
-## Data cleaning
+## データクリーニング
 
 ```{julia}
 data[!, :Foreign_d] = data[:, :Type] .== "Foreign";
@@ -74,7 +74,7 @@ transform!(
 select!(data, Not(:year_2006));
 ```
 
-## 4.2
+## ランダム係数ロジットモデルの推定
 
 ```{julia}
 sort!(data, [:year, :Maker, :price]);
@@ -131,8 +131,6 @@ datalist = datalist_struct(
     );
 parameter = parameter_struct(Nsim, T, N);
 ```
-
-## 4.3
 
 ```{julia}
 #| echo: false
@@ -228,7 +226,7 @@ data_2016 = data[market2016Index, :];
 
 ```
 
-## 5
+## 限界費用の推定
 
 ```{julia}
 Pricevec_2016 = data_2016.price;
@@ -254,7 +252,9 @@ first(pred_mc_df, 10)
 histogram(pred_mc_df.Margin, bins = 40, legend = false)
 ```
 
-## 6
+## 合併シミュレーション
+
+### データの下準備
 
 ```{julia}
 data_2016 = leftjoin(data_2016, pred_mc_df, on = ["Maker", "Name"]);
@@ -274,8 +274,6 @@ Ownership_true = data_2016.Maker .== permutedims(data_2016.Maker);
 Ownership_NippyoA = data_2016.MakerNippyoA .== permutedims(data_2016.MakerNippyoA);
 Ownership_NippyoB = data_2016.MakerNippyoB .== permutedims(data_2016.MakerNippyoB);
 ```
-
-## 6.4
 
 ```{julia}
 mc = data_2016.MC;
@@ -319,8 +317,6 @@ datalist_2016 = datalist_struct(
 )
 ```
 
-## 6.5
-
 ```{julia}
 p_NippyoA = calculateEquilibriumPrice(
     datalist_2016,
@@ -343,9 +339,7 @@ p_NippyoB = calculateEquilibriumPrice(
 );
 ```
 
-## 7
-
-## 7.1
+### 合併シミュレーションによる価格・販売台数変化
 
 ```{julia}
 merger_sim_df = DataFrame(
@@ -372,7 +366,7 @@ merger_sim_df = DataFrame(
 merger_sim_df[in(["Nippyo", "BrandA", "BrandB", "BrandC"]).(merger_sim_df.Maker), :]
 ```
 
-## 7.2
+### 合併後に価格が変化しないような限界費用の計算
 
 ```{julia}
 
@@ -396,7 +390,7 @@ mc_sim_df = DataFrame(
 mc_sim_df[in(["Nippyo", "BrandA", "BrandB", "BrandC"]).(mc_sim_df.Maker), :]
 ```
 
-## 7.4
+### 合併シミュレーションの厚生分析
 
 ```{julia}
 
@@ -492,9 +486,7 @@ total_df[!, :Maker] .= "Total"
 append!(result_df, total_df)
 ```
 
-## 8
-
-## 8.2
+## 追加的なシミュレーション
 
 ```{julia}
 costReducingFirms = ["Nippyo", "Brand_A"];
@@ -622,8 +614,6 @@ share_NippyoA_TSfix = simulateMarketShare(
     );
 ```
 
-## 8.3
-
 ```{julia}
 costReducingFirms = ["Nippyo", "Brand_B"];
 distance = 100
@@ -709,7 +699,7 @@ share_NippyoB_TSfix = simulateMarketShare(
 [1-cost_red_NippyoA 1-cost_red_NippyoB] .* 100
 ```
 
-## 8.5
+### 限界費用削減をしたときの利潤と収入の変化
 
 ```{julia}
 pro_rev_NippyoA_rc = calculateProfit(
@@ -739,8 +729,6 @@ total2_df = combine(result2_df, 2:5 .=> sum .=> names(result2_df)[2:5]);
 total2_df[!, :Maker] .= "Total";
 append!(result2_df, total2_df)
 ```
-
-## 8.6
 
 ```{julia}
 @printf(

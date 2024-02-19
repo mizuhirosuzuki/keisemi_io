@@ -30,6 +30,8 @@ for file in readdir("functions/entry_exit/")
 end
 ```
 
+## データの読み込み
+
 ```{julia}
 data_raw = data = CSV.File(
     open(
@@ -57,7 +59,7 @@ data_cleaned[!, :LogPop] = log.(data_cleaned[:, :Population]);
 data_cleaned[!, :LogIncome] = log.(data_cleaned[:, :TaxableIncome]);
 ```
 
-## 4
+## 企業レベル変数の記述統計
 
 ```{julia}
 listVars = [
@@ -131,7 +133,7 @@ vcat(
 )
 ```
 
-## 5
+## Berry (1992) による推定
 
 ```{julia}
 data_processed_pre = dropmissing(data_cleaned[:, [
@@ -367,6 +369,8 @@ minx = deserialize("tmp/entry_exit_application/minx.ser");
 ```
 
 ```{julia}
+#| echo: false
+#| eval: false
 
 numBootstrap = 100;
 bootEstMat = zeros(length(minx), numBootstrap)
@@ -645,7 +649,7 @@ groupedbar(
 )
 ```
 
-## 7
+## 反実仮想分析
 
 ```{julia}
 data_cf = copy(data_processed);

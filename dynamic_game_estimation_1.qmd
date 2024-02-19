@@ -37,6 +37,8 @@ for file in readdir("functions/dynamic_game/")
 end
 ```
 
+## パラメタの設定
+
 ```{julia}
 
 NumSimMarkets = 500;
@@ -62,21 +64,19 @@ parameterMat = hcat([
     for i in 1:2
 ]...);
 
-TrueParameterValues = vcat([
-    [Parameters[i]; Parameters[3:6]]
-    for i in 1:2
-]...);
-
 TransitionMat = [0.7 0.3; 0.4 0.6];
 
 ```
 
+## 前章で生成したデータの読み込み
 
 ```{julia}
 
 @load "tmp/dynamic_game/data_workspace.jld2";
 
 ```
+
+## CCPの推定
 
 ```{julia}
 
@@ -86,18 +86,11 @@ EstimatedCCP1Mat, EstimatedCCP2Mat = estimateCCPMat(
 
 ```
 
+## 遷移行列の推定
+
 ```{julia}
 
-EstimatedTransition = zeros(2, 2);
-
-SubData = hcat(FakeData, [[0]; FakeData[1:(end - 1), 4]]);
-SubData = SubData[SubData[:, 2] .!= 1, :];
-
-for z in 1:2
-    SubDataZ = SubData[SubData[:, 4] .== z, :];
-    EstimatedTransition[z, z] = mean(SubDataZ[:, 9] .== z);
-    EstimatedTransition[z, 3 - z] = 1 - EstimatedTransition[z, z];
-end
+EstimatedTransition = estimateTransition(FakeData);
 
 ```
 
@@ -109,8 +102,7 @@ hcat(EstimatedCCP1Mat[:, 2], EstimatedCCP2Mat[:, 2])
 EstimatedTransition
 ```
 
-## Step 2
-
+### 関数が正しく挙動しているかのチェック
 
 ```{julia}
 
@@ -169,6 +161,7 @@ output_normalized[1] - output[1]
 output_normalized[2] - output[2]
 ```
 
+## Pesendorfer and Schmidt-Denglerの方法によるパラメタの推定
 
 ```{julia}
 
