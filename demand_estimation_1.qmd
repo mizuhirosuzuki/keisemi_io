@@ -20,6 +20,7 @@ using Optim
 using GLM
 ```
 
+## 関数の読み込み
 
 ```{julia}
 for file in ["addIVColumns.jl", "calculateSales.jl"]
@@ -27,7 +28,9 @@ for file in ["addIVColumns.jl", "calculateSales.jl"]
 end
 ```
 
-## データの読み込み
+## データの準備
+
+### データの読み込み
 
 ```{julia}
 dataCar = CSV.File(
@@ -53,7 +56,7 @@ rename!(dataCPI, "類・品目" => "year", "総合" => "CPI")
 first(dataCPI, 5)
 ```
 
-## データクリーニング
+### データクリーニング
 
 ```{julia}
 dataCar = dataCar[!, [
@@ -95,7 +98,7 @@ data[!, :share] = data.Sales ./ data.HH;
 data[!, :share0] = data.outside_total ./ data.HH;
 ```
 
-## 操作変数の構築
+### 操作変数の構築
 
 ```{julia}
 transform!(
@@ -140,6 +143,8 @@ CSV.write("tmp/demand_estimation_1/data.csv", data);
 ```
 
 ## 記述統計と基礎的な分析
+
+### イントロダクションの日評自動車
 
 ```{julia}
 NIPPYOautoIDvec = [
@@ -198,6 +203,8 @@ plot!(
 
 ```
 
+### 記述統計
+
 ```{julia}
 describe(data[:, [:Sales, :price, :FuelEfficiency, :size, :hppw]])
 ```
@@ -238,6 +245,7 @@ resultGH = reg(
 regtable(resultOLS, resultBLP, resultGH)
 ```
 
+### 1st stage
 
 ```{julia}
 resultBLP1st = reg(
@@ -263,7 +271,7 @@ resultGH1st = reg(
 regtable(resultBLP1st, resultGH1st)
 ```
 
-## 自己価格弾力性の計算
+### 自己価格弾力性の計算
 
 ```{julia}
 data[!, :own_elas_ols] = (
@@ -288,6 +296,8 @@ describe(data[:, r"^own_elas"])
 ```
 
 ## 推定結果の応用
+
+### 需要曲線と収入曲線を書く
 
 ```{julia}
 data[!, :xi_fit] = resultGH.residuals;
@@ -319,6 +329,8 @@ plot(priceVec, priceVec .* salesVec / 1000, legend = false)
 xlabel!("Price (million JPY)")
 ylabel!("Revenue (billion JPY)")
 ```
+
+### 収入を最大化する価格
 
 ```{julia}
 @time resultMaxSales = optimize(

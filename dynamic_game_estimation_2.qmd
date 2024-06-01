@@ -27,7 +27,6 @@ mutable struct global_param_struct
     economyVec::Vector{Int}
     possibleActionArray::Array{Int, 3}
 end
-
 ```
 
 ```{julia}

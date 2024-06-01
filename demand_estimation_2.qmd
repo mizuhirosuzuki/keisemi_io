@@ -38,13 +38,15 @@ end
 
 ```
 
+## 関数の読み込み
+
 ```{julia}
 for file in readdir("functions/demand_estimation")
     include("functions/demand_estimation/" * file)
 end
 ```
 
-## 加工済みデータの読み込み
+## 前回からの加工済みデータの読み込み
 
 ```{julia}
 data = CSV.read("tmp/demand_estimation_1/data.csv", DataFrame);
@@ -183,7 +185,7 @@ resultBLPNested = reg(
 regtable(resultOLS, resultBLPNested)
 ```
 
-## 入れ子型ロジットモデルにおける自己価格弾力性の計算
+### 入れ子型ロジットモデルにおける自己価格弾力性の計算
 
 ```{julia}
 alpha1 = resultOLS.coef[resultOLS.coefnames .== "price"][1]
