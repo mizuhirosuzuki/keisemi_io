@@ -135,6 +135,10 @@ vcat(
 
 ## Berry (1992) による推定
 
+サポートサイトの推定方法と異なり、ここでは「各市での参入病院数」のみを用い、「どの病院が参入したか」の情報は用いない。
+Berry (1992)で述べられているように、パラメタの推定そのものにはどの病院が参入したかの情報は必要ないためである。
+ただし、後の推定結果の評価や反実仮想分析では、「病床数が多い病院から参入するかどうかを決定する」という仮定のもと、どの病院が参入するかを予測する。
+
 ```{julia}
 data_processed_pre = dropmissing(data_cleaned[:, [
             :CityCode, :Kyukyu, :Kinou, :Sien, :Hyoka,
@@ -293,32 +297,6 @@ param_init = [
     );
 ```
 
-
-```{julia}
-#| echo: false
-#| eval: false
-
-# using Optim
-#
-# obj_for_Optim = OnceDifferentiable(
-#     x -> calculateBerryObjectiveAtCityLevel(x, data_processed, u_m0, u_mIm, numEntryObs),
-#     param_init;
-#     autodiff = :forward
-# );
-# @time optim_res = Optim.optimize(
-#     obj_for_Optim,
-#     # x -> calculateBerryObjectiveAtCityLevel(x, data_processed, u_m0, u_mIm, numEntryObs),
-#     [repeat([-Inf], 13); -1.0],
-#     [repeat([Inf], 13); 1.0],
-#     param_init,
-#     Fminbox(LBFGS()),
-#     Optim.Options(show_trace = true)
-# );
-
-# [param_init optim_res.minimizer]
-
-```
-
 ```{julia}
 function obj_for_Optim(x::Vector, grad::Vector)
     if length(grad) != 0
@@ -369,7 +347,6 @@ minx = deserialize("tmp/entry_exit_application/minx.ser");
 ```
 
 ```{julia}
-#| echo: false
 #| eval: false
 
 numBootstrap = 100;
@@ -445,105 +422,18 @@ end
 serialize("tmp/entry_exit_application/bootEstMat.ser", bootEstMat);
 ```
 
+## 推定結果
+
 ```{julia}
 #| echo: false
 bootEstMat = deserialize("tmp/entry_exit_application/bootEstMat.ser");
 ```
 
 ```{julia}
-#| echo: false
-
-# function obj_for_Optim(x::Vector, grad::Vector)
-#     if length(grad) != 0
-#         ForwardDiff.gradient!(
-#             grad, 
-#             x -> calculateBerryObjectiveAtHospitalLevel(x, data_processed, u_m0, u_mIm, cityIndex, simulateEntryByOrder), 
-#             x
-#             )
-#     end
-#     return calculateBerryObjectiveAtHospitalLevel(x, data_processed, u_m0, u_mIm, cityIndex, simulateEntryByOrder)
-# end
-
-# opt = NLopt.Opt(:LN_NELDERMEAD, length(param_init))
-# opt.lower_bounds = [repeat([-Inf], 13); -1.0]
-# opt.upper_bounds = [repeat([Inf], 13); 1.0]
-
-# opt.min_objective = obj_for_Optim;
-# @time (minf, minx, ret) = NLopt.optimize(opt, param_init)
-
-# [param_init minx]
-```
-
-```{julia}
-#| echo: false
-
-# numBootstrap = 100;
-# bootEstMat = zeros(length(minx), numBootstrap)
-
-# @time for bootIndex in 1:numBootstrap
-
-#     bootCitySample = sample(uniqueCityCode, numCity, replace = true);
-#     df_boot = reduce(
-#         vcat,
-#         [
-#             transform(
-#                 data_processed[data_processed.CityCode .== bootCitySample[city] , :],
-#                 :CityCode => (x -> city) => :CityCode
-#             )
-#             for city in 1:numCity
-#         ]
-#     );
-
-#     numHos_boot = nrow(df_boot);
-
-#     uniqueCityCode_boot = unique(df_boot.CityCode);
-#     cityIndex_boot = df_boot.CityCode .== uniqueCityCode_boot';
-
-#     u_m0_boot = cityIndex_boot * randn(numCity, numSim);
-#     u_mIm_boot = randn(numHos_boot, numSim);
-
-#     function obj_for_Optim(x::Vector, grad::Vector)
-#         if length(grad) != 0
-#             ForwardDiff.gradient!(
-#                 grad, 
-#                 x -> calculateBerryObjectiveAtHospitalLevel(
-#                     x, 
-#                     df_boot, 
-#                     u_m0_boot, 
-#                     u_mIm_boot, 
-#                     cityIndex_boot, 
-#                     simulateEntryByOrder
-#                     ), 
-#                 x
-#                 )
-#         end
-#         return calculateBerryObjectiveAtHospitalLevel(
-#             x, 
-#             df_boot, 
-#             u_m0_boot, 
-#             u_mIm_boot, 
-#             cityIndex_boot, 
-#             simulateEntryByOrder
-#             )
-#     end
-
-#     opt_boot = NLopt.Opt(:LN_NELDERMEAD, length(param_init))
-#     opt_boot.lower_bounds = [repeat([-Inf], 13); -1.0]
-#     opt_boot.upper_bounds = [repeat([Inf], 13); 1.0]
-
-#     opt_boot.min_objective = obj_for_Optim;
-#     (minf_boot, minx_boot, ret_boot) = NLopt.optimize(opt_boot, param_init)
-#     bootEstMat[:, bootIndex] .= minx_boot;
-
-# end
-
-```
-
-```{julia}
 [minx std(bootEstMat, dims = 2)]
 ```
 
-## 6.2
+### モデルによる予測の確認
 
 ```{julia}
 
@@ -592,8 +482,8 @@ sort!(data_predicted_sum, [:variable, :value]);
 groupedbar(
     data_predicted_sum.nrow, 
     group = data_predicted_sum.variable,
-    xlabel = "value", 
-    ylabel = "count",
+    xlabel = "Number of hospitals in a city", 
+    ylabel = "Number of cities",
     bar_width = 0.67,
     xticks = (1:5, 0:4),
     lw = 0
@@ -641,8 +531,8 @@ groupedbar(
     dfActPredStack.category, 
     dfActPredStack.value,
     group = dfActPredStack.variable,
-    xlabel = "value", 
-    ylabel = "count",
+    xlabel = "Number of hospitals in a city", 
+    ylabel = "Number of cities",
     bar_width = 0.67,
     lw = 0,
     xrotation = 30
@@ -692,6 +582,11 @@ entryProb_cf = mean(simulateEntryByOrder(
 ), dims = 2)[:, 1];
 ```
 
+### すべての病院
+
+ここでは、各市でいくつの病院がMRIを導入するかのシミュレーション結果を示す。
+神経内科・外科を持つ病院がMRIの所有を義務付けられているという反実仮想のもとでは、多くの市でMRIを所有する病院の数が増えている。
+
 ```{julia}
 entryPred_cf = entryProb_cf .> 0.5;
 
@@ -730,8 +625,8 @@ sort!(data_predicted_cf_sum, [:variable, :value]);
 groupedbar(
     data_predicted_cf_sum.nrow, 
     group = data_predicted_cf_sum.variable,
-    xlabel = "value", 
-    ylabel = "count",
+    xlabel = "Number of hospitals in a city", 
+    ylabel = "Number of cities",
     bar_width = 0.67,
     xticks = (1:5, 0:4),
     lw = 0
@@ -749,6 +644,11 @@ vcat(
         filter(:variable => (x -> x .== "CounterFactual"))
 )
 ```
+
+### 神経内科・外科を持たない病院のみ
+
+ここでは、神経内科・外科を持たない病院のみを考え、MRIを所有する病院数の変化を見る。
+神経内科・外科を持つ病院がMRIを所有するため、そうでない病院はMRIを所有することが少なくなっている。
 
 ```{julia}
 data_predicted_agg_wo_neuro = combine(
@@ -808,8 +708,8 @@ sort!(data_predicted_cf_sum_wo_neuro, [:variable, :value]);
 groupedbar(
     data_predicted_cf_sum_wo_neuro.nrow, 
     group = data_predicted_cf_sum_wo_neuro.variable,
-    xlabel = "value", 
-    ylabel = "count",
+    xlabel = "Number of hospitals in a city", 
+    ylabel = "Number of cities",
     bar_width = 0.67,
     xticks = (1:5, 0:4),
     lw = 0
@@ -883,8 +783,8 @@ groupedbar(
     dfActCounterFactualStack.category, 
     dfActCounterFactualStack.value,
     group = dfActCounterFactualStack.variable,
-    xlabel = "value", 
-    ylabel = "count",
+    xlabel = "Number of hospitals in a city", 
+    ylabel = "Number of cities",
     bar_width = 0.67,
     lw = 0,
     xrotation = 30
@@ -982,8 +882,8 @@ groupedbar(
     dfActCounterFactualStack_wo_neuro.category, 
     dfActCounterFactualStack_wo_neuro.value,
     group = dfActCounterFactualStack_wo_neuro.variable,
-    xlabel = "value", 
-    ylabel = "count",
+    xlabel = "Number of hospitals in a city", 
+    ylabel = "Number of cities",
     bar_width = 0.67,
     lw = 0,
     xrotation = 30

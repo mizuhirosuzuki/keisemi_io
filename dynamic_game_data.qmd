@@ -394,15 +394,11 @@ iter = 0;
 
 end
 
-println(iter)
-
 CCP1Mat .= data_generate_struct.CCP1Mat;
 CCP2Mat .= data_generate_struct.CCP2Mat;
 
 exanteV1 = data_generate_struct.exanteV1;
 exanteV2 = data_generate_struct.exanteV2;
-
-hcat(CCP1Mat, CCP2Mat)
 
 ```
 

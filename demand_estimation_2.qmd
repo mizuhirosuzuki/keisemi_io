@@ -347,6 +347,11 @@ datalist = datalist_struct(
 
 ### 推定
 
+ここでの推定結果が[元のサポートサイト](https://www.nippyo.co.jp/blogkeisemi/wp-content/uploads/sites/5/2021/07/code_demand_2_v2.html#76_Step_4:_GMM_%E7%9B%AE%E7%9A%84%E9%96%A2%E6%95%B0%E3%82%92%E5%AE%9A%E7%BE%A9%E3%81%97%E3%80%81%E6%95%B0%E5%80%A4%E6%9C%80%E9%81%A9%E5%8C%96%E3%81%99%E3%82%8B)のものとかなり異なることに注意されたい。
+元の推定では、ランダム係数の推計値が初期値からほとんど変わっていないように見える。
+もしかすると、本のコードでは市場シェアの更新（永続代入演算子が用いられている）が正しくされていないのかもしれない。
+
+
 ```{julia}
 initial_x = [0.3, 18, 0.01];
 delta_ini = calculateMeanUtil(initial_x, datalist, datalist.logitshare);
@@ -459,6 +464,8 @@ elasmat[[59, 80, 102, 113], [59, 80, 102, 113]]
 ```
 
 ## 応用: プライシング
+
+以下で求められる値はサポートサイトのものとかなり異なるが、これは上で述べた推定結果が原因だと思われる。
 
 ```{julia}
 price_range = range(1.8, 4.0, step = 0.05);

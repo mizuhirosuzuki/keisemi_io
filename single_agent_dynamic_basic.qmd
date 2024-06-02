@@ -201,9 +201,11 @@ xlabel!("Mileage (thousand km)")
 ylabel!("Purchase probability")
 ```
 
-```{julia}
+次の図は「観測された条件付き購入確率」を示す。
+元のサポートサイトでは3Dプロットを使って示されていたが、Juliaではいい感じの3Dプロットを書くのが難しかったため、代わりにヒートマップで示している。
 
-surface(
+```{julia}
+heatmap(
     mileage_states,
     price_states,
     reshape(
@@ -215,9 +217,8 @@ surface(
     ),
     xlabel = "Mileage",
     ylabel = "Price",
-    zlabel = "Purchase prob.",
+    title = "Conditional probability of buying"
 )
-
 ```
 
 ## 遷移行列の推定
